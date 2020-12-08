@@ -25,5 +25,5 @@ class Project:
     return sklearn.metrics.f1_score(y_true > th, y_pred > th)
 
   def score_regression(self, y_true , y_pred):
-    scores = [ score_f1(y_true, y_pred, th=th) for th in [500, 1400, 5000, 10000] ]
+    scores = [ self.score_f1(y_true, y_pred, th=th) for th in [500, 1400, 5000, 10000] ]
     return np.mean(scores)
