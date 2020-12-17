@@ -24,9 +24,11 @@ class Project:
 	"""
 	def __init__(self):
 		self.read_data()
+		#mettre les methodes de feature selection ici
+
+
 		self.splitData()
 		self.X1Scaled,_ = self.normalizeData(self.X1, self.X1)
-		#mettre les methodes de feature selection ici
 
 		#ensuite on peut split nos data
 		self.x_trainScaled, self.x_testScaled = self.normalizeData(self.x_train, self.x_test)
@@ -100,7 +102,9 @@ class Project:
 			print("their mutual information with the target:", mutualInfo[pair])
 			print(nameToRemove, "has the lowest mutual info with the target. I remove it")
 			self.X1 = self.X1.drop(nameToRemove, axis=1)
-
+		# self.splitData()
+		# self.X1Scaled,_ = self.normalizeData(self.X1, self.X1)
+		# self.x_trainScaled, self.x_testScaled = self.normalizeData(self.x_train, self.x_test)
 
 
 
@@ -206,7 +210,7 @@ def getGridSearchKNN(proj):
 
 #gsKNN = getGridSearchKNN(proj)
 #KNNprediction = gsKNN.predict(proj.x_testScaled)	#best params: {'n_neighbors': 13, 'weights': 'uniform'}; training score: 0.5023354439139947
-#print("score by LinearRegression:", proj.score_regression(proj.y_test, KNNprediction))	#0.4874824203078591
+#print("score by KNN:", proj.score_regression(proj.y_test, KNNprediction))	#0.4874824203078591
 
 def getGridSearchMLP(proj):
 	scoring = {'NegMSE': 'neg_mean_squared_error', 'score_regression': make_scorer(proj.score_regression, greater_is_better=True)}
@@ -217,7 +221,7 @@ def getGridSearchMLP(proj):
 			'solver': ['adam'],
 			'alpha': 10.0 ** -np.arange(1, 7), # adviced by https://scikit-learn.org/stable/modules/neural_networks_supervised.html
 			'learning_rate': ['constant'],	#{‘constant’, ‘invscaling’, ‘adaptive’}
-			'learning_rate_init' = [0.1]
+			'learning_rate_init': [0.1]
 			# TODO
 		},
 		scoring=scoring, refit='score_regression', return_train_score=True, error_score=0, n_jobs=-1, verbose=3)
@@ -228,7 +232,7 @@ def getGridSearchMLP(proj):
 
 #gsMLP = getGridSearchMLP(proj)
 #MLPprediction = gsMLP.predict(proj.x_testScaled)
-#print(f"score by LinearRegression: {proj.score_regression(proj.y_test, MLPprediction)}")
+#print(f"score by MLP: {proj.score_regression(proj.y_test, MLPprediction)}")
 
 """
 Trash mais que je veux pas supprimer quand même ^^ :
