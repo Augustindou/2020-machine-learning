@@ -62,13 +62,19 @@ class Project:
 
 	def __init__(self):
 		# WIP
+		if VERBOSE: print("\n--- Preprocessing ---")
 		self.read_data()
+		# ! Bri et Val font un normalize sur tout, preprocessing sur tout (pas oublier X2) et puis split et puis fit
+		# TODO preprocess jours en sin cos
 		self.split_data()
 		self.normalize_data()
-		# mettre les methodes de feature selection ici
 
+		if VERBOSE: print("\n--- Feature Selection ---")
+		print("no feature selection implemented yet")
+
+		if VERBOSE: print("\n--- Splitting data ---")
 		# ensuite on peut split nos data
-		self.X_trainScaled, self.X_testScaled = self.normalize_data(self.X_train, self.X_test)
+		# self.X_trainScaled, self.X_testScaled = self.normalize_data(self.X_train, self.X_test)
 
 	def read_data(self,
 		X1_file : str = "X1.csv",
@@ -140,27 +146,35 @@ class Project:
 		cor = np.abs(np.corrcoef(self.X1_scaled, self.Y1))
 		upperCor = np.triu(cor, k=1)	#k=1 to ignore the diagonal
 
-	def predict_with_linear_regression(self):
+	def predict_with_linear_regression(self, scaled = True):
 		"""
 		Fit a linear regressor using the training data and make a prediction of the test data
 		"""
 		linear_regressor = LinearRegression(fit_intercept=True, normalize=False, n_jobs=-1)
-		linear_regressor.fit(self.X_train_scaled, self.Y_train)
-		prediction = linear_regressor.predict(self.X_test_scaled)
+		if scaled:
+			linear_regressor.fit(self.X_train_scaled, self.Y_train)
+			prediction = linear_regressor.predict(self.X_test_scaled)
+		else:
+			linear_regressor.fit(self.X_train, self.Y_train)
+			prediction = linear_regressor.predict(self.X_test)
 		return prediction, linear_regressor.coef_
 
-	def predict_with_lasso(self, max_iter : int = 1100, tol : float = 1e-4, warm_start : bool = False):
+	def predict_with_lasso(self, scaled = True, max_iter : int = 1100, tol : float = 1e-4, warm_start : bool = False):
 		"""
 		Linear model trained with L1 prior as regularizer (aka the Lasso). 
 		DOC : https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html#sklearn.linear_model.Lasso:
 		"""
 		lasso = Lasso(alpha=1.0, fit_intercept=True, normalize=False, max_iter=max_iter, tol=tol, warm_start=warm_start, selection='random')
 		# we can also use selection='cyclic' to loop over features sequentially
-		lasso.fit(self.X_train_scaled, self.Y_train)
-		prediction = lasso.predict(self.X_test)
+		if scaled:
+			lasso.fit(self.X_train_scaled, self.Y_train)
+			prediction = lasso.predict(self.X_test_scaled)
+		else:
+			lasso.fit(self.X_train, self.Y_train)
+			prediction = lasso.predict(self.X_test)
 		return prediction, lasso.coef_
 	
-	def predict_with_knn(self, n_neighbors : int = 5, weights = 'uniform', algorithm = 'auto', leaf_size : int = 30, p : int = 2):
+	def predict_with_knn(self, scaled = True, n_neighbors : int = 5, weights = 'uniform', algorithm = 'auto', leaf_size : int = 30, p : int = 2):
 		"""
 		Prediction with KNN
 		DOC : https://scikit-learn.org/stable/modules/neighbors.html#neighbors (important for undersanding the choice of algorithm to use)
@@ -170,11 +184,15 @@ class Project:
 		"""
 		# other parameters for KNeighborsRegressor : metric='minkowski', metric_params=None
 		knn = KNeighborsRegressor(n_neighbors, weights, algorithm, leaf_size, p, n_jobs=-1)
-		knn.fit(self.X_train_scaled, self.Y_train)
-		prediction = knn.predict(self.X_test)
+		if scaled:
+			knn.fit(self.X_train_scaled, self.Y_train)
+			prediction = knn.predict(self.X_test_scaled)
+		else:
+			knn.fit(self.X_train, self.Y_train)
+			prediction = knn.predict(self.X_test)
 		return prediction
 
-	def predict_with_mlp(self):
+	def predict_with_mlp(self, scaled = True):
 		"""
 		Prediction with MLP
 		DOC : https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPRegressor.html
@@ -203,11 +221,15 @@ class Project:
 			epsilon=1e-08,
 			n_iter_no_change=10,
 			max_fun=15000)
-		mlp.fit(self.X_train_scaled, self.Y_train)
-		prediction = mlp.predict(self.X_test)
+		if scaled:
+			mlp.fit(self.X_train_scaled, self.Y_train)
+			prediction = mlp.predict(self.X_test_scaled)
+		else:
+			mlp.fit(self.X_train, self.Y_train)
+			prediction = mlp.predict(self.X_test)
 		return prediction
 
-	def get_grid_search_knn(self):
+	def get_grid_search_knn(self, scaled = True):
 		"""
 		DOC : https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
 		"""
@@ -230,7 +252,10 @@ class Project:
 			error_score=0, 
 			n_jobs=-1, 
 			verbose=3)
-		gs.fit(self.X_train_scaled, self.Y_train)
+		if scaled:
+			gs.fit(self.X_train_scaled, self.Y_train)
+		else:
+			gs.fit(self.X_train, self.Y_train)
 
 		if VERBOSE:
 			print("--- Grid search KNN ---")
@@ -239,7 +264,7 @@ class Project:
 
 		return gs
 
-	def get_grid_search_mlp(self):
+	def get_grid_search_mlp(self, scaled = True):
 		scoring = {
 			'NegMSE': 'neg_mean_squared_error', 
 			'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
@@ -262,7 +287,10 @@ class Project:
 			error_score=0, 
 			n_jobs=-1, 
 			verbose=3)
-		gs.fit(self.X_train_scaled, self.Y_train)
+		if scaled:
+			gs.fit(self.X_train_scaled, self.Y_train)
+		else:
+			gs.fit(self.X_train, self.Y_train)
 		
 		if VERBOSE:
 			print("--- Grid search MLP ---")
@@ -275,31 +303,27 @@ class Project:
 
 
 
+p = Project()
+
+# linear regression not scaled
+prediction,_ = p.predict_with_linear_regression(scaled=False)
+print("score by LinearRegression testing (not scaled):", score_regression(p.Y_test, prediction))	# 0.48896528584814974
+
+# lasso not scaled
+prediction,_ = p.predict_with_lasso(scaled=False)
+print("score by Lasso testing (not scaled):", score_regression(p.Y_test, prediction))	# 0.488894300572261
+
+# linear regression scaled
+prediction,_ = p.predict_with_linear_regression()
+print("score by LinearRegression (scaled):", score_regression(p.Y_test, prediction)) # 0.48243917542285	
+
+# lasso scaled
+prediction,_ = p.predict_with_lasso()
+print("score by Lasso testing (scaled):", score_regression(p.Y_test, prediction))	# 0.4834171812808842
 
 
-
-
-
-
-
-
-# ------------------------------------------------------------------------------
-# --------------------------- OLD CODE FROM GAUTHIER ---------------------------
-# ------------------------------------------------------------------------------
-
-proj = Project()
-LinearRegressionPrediction,_ = predictWithLinearRegression(proj.X_trainScaled, proj.Y_train, proj.X_trainScaled)
-print("score by LinearRegression testing from learned data:", score_regression(proj.Y_train, LinearRegressionPrediction))	#0.48896528584814974
-LassoPrediction,_ = predictWithLasso(proj.X_trainScaled, proj.Y_train, proj.X_trainScaled)
-print("score by Lasso testing from learned data:", score_regression(proj.Y_train, LassoPrediction))	#0.488894300572261
-
-LinearRegressionPrediction,_ = predictWithLinearRegression(proj.X_trainScaled, proj.Y_train, proj.X_testScaled)
-print("score by LinearRegression:", score_regression(proj.Y_test, LinearRegressionPrediction))	#0.48243917542285
-LassoPrediction,_ = predictWithLasso(proj.X_trainScaled, proj.Y_train, proj.X_testScaled)
-print("score by Lasso testing:", score_regression(proj.Y_test, LassoPrediction))	#0.4834171812808842
-
-A = np.corrcoef(proj.X_train, proj.Y_train, rowvar=False)
-B = np.corrcoef(proj.X_trainScaled, proj.Y_train, rowvar=False)
+A = np.corrcoef(p.X_train, p.Y_train, rowvar=False)
+B = np.corrcoef(p.X_train_scaled, p.Y_train, rowvar=False)
 print(A[1,2], B[1,2])
 
 #/!\ preneur en temps mais beau et instructif sur les features donnant potentiellement les mêmes info.
