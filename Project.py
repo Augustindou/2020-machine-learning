@@ -9,9 +9,9 @@ from sklearn.linear_model import LinearRegression, Lasso
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.neural_network import MLPRegressor
-from sklearn.model_selection import KFold
 from sklearn.metrics import make_scorer
 from sklearn.model_selection import GridSearchCV
+from sklearn.feature_selection import mutual_info_regression
 
 #sklearn.preprocessing.normalize ??? je sais pas si il faut
 
@@ -24,9 +24,11 @@ class Project:
 	"""
 	def __init__(self):
 		self.read_data()
+		#mettre les methodes de feature selection ici
+
+
 		self.splitData()
 		self.X1Scaled,_ = self.normalizeData(self.X1, self.X1)
-		#mettre les methodes de feature selection ici
 
 		#ensuite on peut split nos data
 		self.x_trainScaled, self.x_testScaled = self.normalizeData(self.x_train, self.x_test)
@@ -83,10 +85,26 @@ class Project:
 		sns.heatmap(correlation_mat, annot = False)
 		plt.savefig(filename)
 
-	def removeCorrFeatures(self, th=85):
-		cor = np.abs(np.corrcoef(self.X1Scaled, self.Y1))
-		upperCor = np.triu(cor, k=1)	#k=1 to ignore the diagonal
-
+	"""
+		Function that removes the features that are overly linearly related with each other (too corelated).
+		For each pair of two too corelated features, theone that has the lowest mutual information with the target is removed.
+		@param:	th: [float] thresshold over wich the correlation between two features is supposed to be too high
+	"""
+	def removeCorrFeatures(self, th=0.9):
+		cor = np.abs(np.corrcoef(self.X1Scaled, self.Y1.values, rowvar=False))
+		upperCor = np.triu(cor, k=1)[:-1,:-1]						#k=1 to ignore the diagonal and [:-1,:-1] to ignore the correlation with the target
+		stronglyCorrelated = np.argwhere(upperCor > th)
+		mutualInfo = mutual_info_regression(self.X1Scaled, np.ravel(self.Y1))	#takes a bit of time
+		for pair in stronglyCorrelated:
+			print("those features are highly corelated:", self.X1.columns.values[pair], "they have a correlation of", upperCor[pair[0],pair[1]] )
+			indexToRemove = pair[np.argsort(mutualInfo[pair])[0]]	#desole Guss, je sais c'est pas lisible mais il est tard donc je m embete pas
+			nameToRemove = self.X1.columns[indexToRemove]
+			print("their mutual information with the target:", mutualInfo[pair])
+			print(nameToRemove, "has the lowest mutual info with the target. I remove it")
+			self.X1 = self.X1.drop(nameToRemove, axis=1)
+		# self.splitData()
+		# self.X1Scaled,_ = self.normalizeData(self.X1, self.X1)
+		# self.x_trainScaled, self.x_testScaled = self.normalizeData(self.x_train, self.x_test)
 
 
 
@@ -119,8 +137,8 @@ def predictWithLasso(trainingSet, target, testingSet, max_iter=1100, tol=0.0001,
 	lasso.fit(trainingSet, target)
 	return lasso.predict(testingSet), lasso.coef_
 
-
 proj = Project()
+proj.removeCorrFeatures()
 LinearRegressioPrediction,_ = predictWithLinearRegression(proj.x_trainScaled, proj.y_train, proj.x_trainScaled)
 print("score by LinearRegression testing from learned data:", proj.score_regression(proj.y_train, LinearRegressioPrediction))	#0.48896528584814974
 LassoPrediction,_ = predictWithLasso(proj.x_trainScaled, proj.y_train, proj.x_trainScaled)
@@ -191,8 +209,8 @@ def getGridSearchKNN(proj):
 	return gs
 
 #gsKNN = getGridSearchKNN(proj)
-KNNprediction = gsKNN.predict(proj.x_testScaled)	#best params: {'n_neighbors': 13, 'weights': 'uniform'}; training score: 0.5023354439139947
-print("score by LinearRegression:", proj.score_regression(proj.y_test, KNNprediction))	#0.4874824203078591
+#KNNprediction = gsKNN.predict(proj.x_testScaled)	#best params: {'n_neighbors': 13, 'weights': 'uniform'}; training score: 0.5023354439139947
+#print("score by KNN:", proj.score_regression(proj.y_test, KNNprediction))	#0.4874824203078591
 
 def getGridSearchMLP(proj):
 	scoring = {'NegMSE': 'neg_mean_squared_error', 'score_regression': make_scorer(proj.score_regression, greater_is_better=True)}
@@ -201,7 +219,9 @@ def getGridSearchMLP(proj):
 			'hidden_layer_sizes': [(100,), (140,), (50,50,), (50,)],
 			'activation': ['identity', 'logistic', 'tanh', 'relu'],
 			'solver': ['adam'],
-			'alpha': 10.0 ** -np.arange(1, 7) # adviced by https://scikit-learn.org/stable/modules/neural_networks_supervised.html
+			'alpha': 10.0 ** -np.arange(1, 7), # adviced by https://scikit-learn.org/stable/modules/neural_networks_supervised.html
+			'learning_rate': ['constant'],	#{‘constant’, ‘invscaling’, ‘adaptive’}
+			'learning_rate_init': [0.1]
 			# TODO
 		},
 		scoring=scoring, refit='score_regression', return_train_score=True, error_score=0, n_jobs=-1, verbose=3)
@@ -212,7 +232,7 @@ def getGridSearchMLP(proj):
 
 #gsMLP = getGridSearchMLP(proj)
 #MLPprediction = gsMLP.predict(proj.x_testScaled)
-#print(f"score by LinearRegression: {proj.score_regression(proj.y_test, MLPprediction)}")
+#print(f"score by MLP: {proj.score_regression(proj.y_test, MLPprediction)}")
 
 """
 Trash mais que je veux pas supprimer quand même ^^ :
@@ -244,3 +264,15 @@ If the data ordering is not arbitrary (e.g. samples with the same class label ar
 However, the opposite may be true if the samples are not independently and identically distributed. For example, if samples correspond to news articles, and are ordered by their time of publication,
 then shuffling the data will likely lead to a model that is overfit and an inflated validation score: it will be tested on samples that are artificially similar (close in time) to training samples.
 """
+
+
+
+B = np.arange(1,26,1)
+A = np.reshape(B, (5,5))
+A = np.triu(A, k=1)
+A
+
+stronglyCorrelated = np.argwhere(A > 12)
+for pair in stronglyCorrelated:
+	print(A[pair[0],pair[1]])
+	print("those features are highly corelated:", A[0][pair])
