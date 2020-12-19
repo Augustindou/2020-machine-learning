@@ -265,7 +265,7 @@ class Project:
 			prediction = mlp.predict(self.X_test)
 		return prediction
 
-	def get_grid_search_knn(self, scaled = True):
+	def get_grid_search_knn(self):
 		"""
 		DOC : https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
 		"""
@@ -288,10 +288,8 @@ class Project:
 			error_score=0, 
 			n_jobs=-1, 
 			verbose=3)
-		if scaled:
-			gs.fit(self.X_train_scaled, self.Y_train)
-		else:
-			gs.fit(self.X_train, self.Y_train)
+		
+		gs.fit(self.X_train, self.Y_train)
 
 		if VERBOSE:
 			print("--- Grid search KNN ---")
@@ -300,7 +298,7 @@ class Project:
 
 		return gs
 
-	def get_grid_search_mlp(self, scaled = True):
+	def get_grid_search_mlp(self):
 		scoring = {
 			'NegMSE': 'neg_mean_squared_error', 
 			'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
@@ -325,10 +323,8 @@ class Project:
 			error_score=0, 
 			n_jobs=-1, 
 			verbose=3)
-		if scaled:
-			gs.fit(self.X_train_scaled, self.Y_train)
-		else:
-			gs.fit(self.X_train, self.Y_train)
+	
+		gs.fit(self.X_train, self.Y_train)
 		
 		if VERBOSE:
 			print("--- Grid search MLP ---")
