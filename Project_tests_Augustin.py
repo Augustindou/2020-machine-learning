@@ -291,13 +291,13 @@ class Project:
 			'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
 		}
 		grid = {
-			'hidden_layer_sizes': [(100,), (140,), (50,50,), (50,)],
+			'hidden_layer_sizes': [(100,), (15,), (50,50,), (50,)],
 			'activation': ['identity', 'logistic', 'tanh', 'relu'],
 			'solver': ['adam'],
 			'alpha': 10.0 ** -np.arange(1, 7),
 			# DOC : alpha advised by https://scikit-learn.org/stable/modules/neural_networks_supervised.html
-			'learning_rate': ['constant'],	#{‘constant’, ‘invscaling’, ‘adaptive’}
-			'learning_rate_init': [0.1]
+			'learning_rate': ['constant', 'invscaling', 'adaptive'],	#{‘constant’, ‘invscaling’, ‘adaptive’}
+			'learning_rate_init': [1, 0.1, 0.0001]
 			# TODO
 		}
 
