@@ -80,7 +80,7 @@ class Project:
 		if VERBOSE : print("\n--- Feature Selection ---")
 		self.remove_correlation_features()
 		#self.pca() # pca ? kernel_pca ?
-		# self.kernel_pca()
+		self.kernel_pca()
 
 		if VERBOSE : print("\n--- Splitting data ---")
 		self.split_data()
