@@ -80,7 +80,7 @@ class Project:
 
 		if VERBOSE : print("\n--- Feature Selection ---")
 		self.remove_correlation_features()
-		self.pca() # pca ? kernel_pca ?
+		#self.pca() # pca ? kernel_pca ?
 		# self.kernel_pca()
 
 		if VERBOSE : print("\n--- Splitting data ---")
@@ -205,18 +205,22 @@ class Project:
 		plt.savefig(filename)
 		if VERBOSE : print(f"Saved correlation matrix to '{filename}'")
 
-	def remove_correlation_features(self, th=0.8):
+	def remove_correlation_features(self, th=0.85):
 		cor = np.abs(np.corrcoef(self.X1, self.Y1.values, rowvar=False))
 		upper_cor = np.triu(cor, k=1)[:-1,:-1]						#k=1 to ignore the diagonal and [:-1,:-1] to ignore the correlation with the target
 		strongly_correlated = np.argwhere(upper_cor > th)
 		mutual_info = mutual_info_regression(self.X1, np.ravel(self.Y1))	#quite slow
+		set_to_remove = set()
 		for pair in strongly_correlated:
 			if VERBOSE : print("those features are highly corelated:", self.X1.columns.values[pair], "they have a correlation of", upper_cor[pair[0],pair[1]] )
-			index_to_remove = pair[np.argsort(mutual_info[pair])[0]]
-			name_to_remove = self.X1.columns[index_to_remove]
-			if VERBOSE : print("their mutual information with the target:", mutual_info[pair])
-			if VERBOSE : print(name_to_remove, "has the lowest mutual info with the target. I remove it")
-			self.X1 = self.X1.drop(name_to_remove, axis=1)
+			if (pair[0] not in set_to_remove) and (pair[1] not in set_to_remove):
+				index_to_remove = pair[np.argsort(mutual_info[pair])[0]]
+				name_to_remove = self.X1.columns[index_to_remove]
+				if VERBOSE : print("their mutual information with the target:", mutual_info[pair])
+				if VERBOSE : print(name_to_remove, "has the lowest mutual info with the target. I will remove it")
+				set_to_remove.add(name_to_remove)
+		self.X1 = self.X1.drop(list(set_to_remove), axis=1)
+		if VERBOSE : print(f"removed {len(set_to_remove)} correlated features")
 
 	def predict_with_linear_regression(self, preprocessing = 'default'):
 		"""
@@ -403,7 +407,7 @@ scoring = {
 	'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
 }
 
-# p = Project()
+p = Project()
 
 # print("\n--- Normal ---")
 # # linear regression scaled
