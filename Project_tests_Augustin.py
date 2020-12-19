@@ -204,7 +204,7 @@ class Project:
 		plt.savefig(filename)
 		if VERBOSE : print(f"Saved correlation matrix to '{filename}'")
 
-	def remove_correlation_features(self, th=0.5):
+	def remove_correlation_features(self, th=0.85):
 		cor = np.abs(np.corrcoef(self.X1, self.Y1.values, rowvar=False))
 		upper_cor = np.triu(cor, k=1)[:-1,:-1]						#k=1 to ignore the diagonal and [:-1,:-1] to ignore the correlation with the target
 		strongly_correlated = np.argwhere(upper_cor > th)
