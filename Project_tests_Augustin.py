@@ -24,6 +24,9 @@ Comments on the project :
 ? Questions to ask :
 	?
 
+! Important notes :
+	! Bri et Val font un normalize sur tout, preprocessing sur tout (pas oublier X2) et puis split et puis fit
+
 Documentation to read :
 	DOC
 
@@ -64,17 +67,19 @@ class Project:
 		# WIP
 		if VERBOSE: print("\n--- Preprocessing ---")
 		self.read_data()
-		# ! Bri et Val font un normalize sur tout, preprocessing sur tout (pas oublier X2) et puis split et puis fit
-		# TODO preprocess jours en sin cos
-		self.split_data()
 		self.normalize_data()
 
 		if VERBOSE: print("\n--- Feature Selection ---")
-		print("no feature selection implemented yet")
+		self.feature_selection()
 
 		if VERBOSE: print("\n--- Splitting data ---")
+		self.split_data()
+
 		# ensuite on peut split nos data
 		# self.X_trainScaled, self.X_testScaled = self.normalize_data(self.X_train, self.X_test)
+
+	def feature_selection(self):
+		self.days_one_hot_to_sin_cos()
 
 	def read_data(self,
 		X1_file : str = "X1.csv",
@@ -109,24 +114,47 @@ class Project:
 			self.X1_scaled = scaler.transform(self.X1)
 			if VERBOSE : print("X1 has been normalized")
 		elif VERBOSE : print("Instance has no attribute 'X1', try running read_data() before normalizing")
+	
+	def days_one_hot_to_sin_cos(self):
+		# transform one-hot into list : monday = 0, tuesday = 1, ...
+		l = np.zeros(len(self.X1['weekday_is_monday']))
+		for idx, mon, tue, wed, thu, fri, sat, sun in zip(range(len(l)),
+			self.X1['weekday_is_monday'], 
+			self.X1['weekday_is_tuesday'],
+			self.X1['weekday_is_wednesday'],
+			self.X1['weekday_is_thursday'],
+			self.X1['weekday_is_friday'],
+			self.X1['weekday_is_saturday'],
+			self.X1['weekday_is_sunday']):
 
-		if hasattr(self, 'X_train') and hasattr(self, 'X_test'):
-			scaler = StandardScaler()
-			scaler.fit(self.X_train)
-			self.X_train_scaled = scaler.transform(self.X_train)
-			self.X_test_scaled  = scaler.transform(self.X_test)
-			if VERBOSE : print("X_train and X_test have been normalized based on X_train")
-		elif VERBOSE : print("Instance has no attribute 'X_train' or 'X_test' (probably both)")
+			if   mon == 1 : l[idx] = 0; continue
+			elif tue == 1 : l[idx] = 1; continue
+			elif wed == 1 : l[idx] = 2; continue
+			elif thu == 1 : l[idx] = 3; continue
+			elif fri == 1 : l[idx] = 4; continue
+			elif sat == 1 : l[idx] = 5; continue
+			elif sun == 1 : l[idx] = 6; continue
+	
+		# create new columns
+		self.X1.loc[:, 'weekday_sin'] = np.sin(l*2*np.pi/7)
+		self.X1.loc[:, 'weekday_cos'] = np.cos(l*2*np.pi/7)
+
+		# drop old columns
+		col = ['weekday_is_monday', 'weekday_is_tuesday', 'weekday_is_wednesday', 'weekday_is_thursday', 'weekday_is_friday', 'weekday_is_saturday', 'weekday_is_sunday']
+		self.X1 = self.X1.drop(columns = col)
+		
+		if VERBOSE : print("Transformed one-hot encodings in sin-cos weekdays & dropped one-hot encodings")
+		
 	
 	def describe_features(self):
 		"""
-		print a description of the features
+		Print a description of the features
 		"""
 		print(self.X1.describe)
 
 	def get_features_names(self):
 		"""
-		print the names of the different features
+		Print the names of the different features
 		"""
 		print(self.X1.columns)
 
