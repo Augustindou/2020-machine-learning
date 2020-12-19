@@ -12,6 +12,7 @@ from sklearn.linear_model import LinearRegression, Lasso
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.neural_network import MLPRegressor
 from sklearn.feature_selection import mutual_info_regression
+from sklearn.decomposition import KernelPCA
 
 #sklearn.preprocessing.normalize ??? je sais pas si il faut
 
@@ -144,7 +145,13 @@ class Project:
 		self.X1 = self.X1.drop(columns = col)
 		
 		if VERBOSE : print("Transformed one-hot encodings in sin-cos weekdays & dropped one-hot encodings")
-		
+	
+	def kernel_pca(self, n_features : int = 15, kernel = 'linear'):
+		"""
+		KernelPCA for feature selection
+		DOC : https://scikit-learn.org/stable/modules/decomposition.html#kernel-pca
+		"""
+		kpca = KernelPCA(n_components=n_features, kernel=kernel, gamma=1/n_features, alpha=1.0, fit_inverse_transform=False, eigen_solver='auto', tol=0, max_iter=None, remove_zero_eig=False, random_state=None, copy_X=True, n_jobs=None)
 	
 	def describe_features(self):
 		"""
@@ -182,32 +189,24 @@ class Project:
 			if VERBOSE : print(nameToRemove, "has the lowest mutual info with the target. I remove it")
 			self.X1 = self.X1.drop(nameToRemove, axis=1)
 
-	def predict_with_linear_regression(self, scaled = True):
+	def predict_with_linear_regression(self):
 		"""
 		Fit a linear regressor using the training data and make a prediction of the test data
 		"""
 		linear_regressor = LinearRegression(fit_intercept=True, normalize=False, n_jobs=-1)
-		if scaled:
-			linear_regressor.fit(self.X_train_scaled, self.Y_train)
-			prediction = linear_regressor.predict(self.X_test_scaled)
-		else:
-			linear_regressor.fit(self.X_train, self.Y_train)
-			prediction = linear_regressor.predict(self.X_test)
+		linear_regressor.fit(self.X_train, self.Y_train)
+		prediction = linear_regressor.predict(self.X_test)
 		return prediction, linear_regressor.coef_
 
-	def predict_with_lasso(self, scaled = True, max_iter : int = 1100, tol : float = 1e-4, warm_start : bool = False):
+	def predict_with_lasso(self, max_iter : int = 1100, tol : float = 1e-4, warm_start : bool = False):
 		"""
 		Linear model trained with L1 prior as regularizer (aka the Lasso). 
 		DOC : https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html#sklearn.linear_model.Lasso:
 		"""
 		lasso = Lasso(alpha=1.0, fit_intercept=True, normalize=False, max_iter=max_iter, tol=tol, warm_start=warm_start, selection='random')
 		# we can also use selection='cyclic' to loop over features sequentially
-		if scaled:
-			lasso.fit(self.X_train_scaled, self.Y_train)
-			prediction = lasso.predict(self.X_test_scaled)
-		else:
-			lasso.fit(self.X_train, self.Y_train)
-			prediction = lasso.predict(self.X_test)
+		lasso.fit(self.X_train, self.Y_train)
+		prediction = lasso.predict(self.X_test)
 		return prediction, lasso.coef_
 	
 	def predict_with_knn(self, scaled = True, n_neighbors : int = 5, weights = 'uniform', algorithm = 'auto', leaf_size : int = 30, p : int = 2):
