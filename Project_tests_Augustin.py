@@ -248,8 +248,7 @@ class Project:
 		else:
 			lasso.fit(self.X_train, self.Y_train)
 			prediction = lasso.predict(self.X_test)
-		return prediction, lasso.coef_
-	
+		return prediction, lasso.coef_	
 
 	def get_grid_search_knn(self):
 		"""
@@ -280,7 +279,7 @@ class Project:
 		if VERBOSE :
 			print("--- Grid search KNN ---")
 			print("best parameters:", gs.best_params_)
-			print("training score:", gs.best_score_)
+			print("training score (on trained data):", gs.best_score_)
 
 		return gs
 
@@ -315,7 +314,7 @@ class Project:
 		if VERBOSE :
 			print("--- Grid search MLP ---")
 			print("best params:", gs.best_params_)
-			print("training score:", gs.best_score_)
+			print("training score (on trained data):", gs.best_score_)
 
 		return gs
 
@@ -325,7 +324,7 @@ class Project:
 
 p = Project()
 
-print("--- Normal ---")
+print("\n--- Normal ---")
 # linear regression scaled
 prediction,_ = p.predict_with_linear_regression()
 print("score by LinearRegression:", score_regression(p.Y_test, prediction)) # 0.48243917542285	
@@ -334,7 +333,7 @@ print("score by LinearRegression:", score_regression(p.Y_test, prediction)) # 0.
 prediction,_ = p.predict_with_lasso()
 print("score by Lasso testing:", score_regression(p.Y_test, prediction))	# 0.4834171812808842
 
-print("--- PCA ---")
+print("\n--- PCA ---")
 # linear regression scaled
 prediction,_ = p.predict_with_linear_regression(preprocessing = "pca")
 print("score by LinearRegression:", score_regression(p.pca_Y_test, prediction)) 
@@ -343,7 +342,7 @@ print("score by LinearRegression:", score_regression(p.pca_Y_test, prediction))
 prediction,_ = p.predict_with_lasso(preprocessing = "pca")
 print("score by Lasso testing:", score_regression(p.pca_Y_test, prediction))	
 
-print("--- Kernel PCA ---")
+print("\n--- Kernel PCA ---")
 # linear regression scaled
 prediction,_ = p.predict_with_linear_regression(preprocessing = "kpca")
 print("score by LinearRegression:", score_regression(p.kpca_Y_test, prediction)) 
