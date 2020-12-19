@@ -1,19 +1,16 @@
 # imports
-import pandas as pd
-import numpy as np
-import sklearn
-import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression, Lasso
-from sklearn.model_selection import train_test_split
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import sklearn
+from sklearn.feature_selection import mutual_info_regression
+from sklearn.linear_model import Lasso, LinearRegression
+from sklearn.metrics import make_scorer
+from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.neural_network import MLPRegressor
-from sklearn.metrics import make_scorer
-from sklearn.model_selection import GridSearchCV
-from sklearn.feature_selection import mutual_info_regression
-
-#sklearn.preprocessing.normalize ??? je sais pas si il faut
+from sklearn.preprocessing import StandardScaler
 
 # verbose
 VERBOSE_LEVEL = 0
@@ -77,7 +74,7 @@ class Project:
 
 	def plotCorrelationMatrix(self, filename="correlation_mat.svg", normalize=True):
 		if normalize:
-			X1Normalized = normalizeDataAsPanda(self.X1)
+			X1Normalized = self.normalizeDataAsPanda(self.X1)
 			correlation_mat = X1Normalized.join(self.Y1).corr()
 		else :
 			correlation_mat = self.X1.join(self.Y1).corr()
