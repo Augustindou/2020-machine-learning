@@ -12,6 +12,7 @@ from sklearn.linear_model import LinearRegression, Lasso
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.neural_network import MLPRegressor
 from sklearn.feature_selection import mutual_info_regression
+from sklearn.ensemble import IsolationForest
 
 #sklearn.preprocessing.normalize ??? je sais pas si il faut
 
@@ -145,7 +146,15 @@ class Project:
 		
 		if VERBOSE : print("Transformed one-hot encodings in sin-cos weekdays & dropped one-hot encodings")
 		
-	
+	def removeOutliers(self):
+		isolation_forest = IsolationForest(n_jobs=-1)
+		index = isolation_forest.fit_predict(np.append(self.X1, self.Y1, axis=1))
+		to_remove = np.arange(0,len(index),1)[index==-1]
+		self.X1 = self.X1.drop(index=to_remove)
+		self.Y1 = self.Y1.drop(index=to_remove)
+		if VERBOSE : print("removed " + len(to_remove)+ " outliers")
+
+
 	def describe_features(self):
 		"""
 		Print a description of the features
@@ -210,60 +219,6 @@ class Project:
 			prediction = lasso.predict(self.X_test)
 		return prediction, lasso.coef_
 	
-	def predict_with_knn(self, scaled = True, n_neighbors : int = 5, weights = 'uniform', algorithm = 'auto', leaf_size : int = 30, p : int = 2):
-		"""
-		Prediction with KNN
-		DOC : https://scikit-learn.org/stable/modules/neighbors.html#neighbors (important for undersanding the choice of algorithm to use)
-		@param weights : {'uniform', 'distance'}
-		@param algorithm : {'auto', 'ball_tree', 'kd_tree', 'brute'}
-		? @Gauthier p pour manhattan_distance ou euclidean_distance ou autre pour minkowski dependant de p
-		"""
-		# other parameters for KNeighborsRegressor : metric='minkowski', metric_params=None
-		knn = KNeighborsRegressor(n_neighbors=n_neighbors, weights=weights, algorithm=algorithm, leaf_size=leaf_size, p=p, n_jobs=-1)
-		if scaled:
-			knn.fit(self.X_train_scaled, self.Y_train)
-			prediction = knn.predict(self.X_test_scaled)
-		else:
-			knn.fit(self.X_train, self.Y_train)
-			prediction = knn.predict(self.X_test)
-		return prediction
-
-	def predict_with_mlp(self, scaled = True):
-		"""
-		Prediction with MLP
-		DOC : https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPRegressor.html
-		"""
-		mlp = MLPRegressor(
-			hidden_layer_sizes=(100, ), # 1 layer with 100 neurons
-			activation='relu',          # {‘identity’, ‘logistic’, ‘tanh’, ‘relu’}
-			solver='adam',              # {‘lbfgs’, ‘sgd’, ‘adam’} # sgd lbfgs pour petits sets, adam robuste, sgd donne de meilleurs resultats si le learning rate est bien reglé
-			alpha=1e-4,		              # regularization term
-			batch_size='auto',
-			learning_rate='constant',	  # {‘constant’, ‘invscaling’, ‘adaptive’}
-			learning_rate_init=1e-3,
-			power_t=0.5,								# only used when solver=’sgd’.
-			max_iter=200,
-			shuffle=True,		            # only used when solver=’sgd’ or ‘adam’
-			random_state=None,
-			tol=1e-4,
-			verbose=False,
-			warm_start=False,
-			momentum=0.9,
-			nesterovs_momentum=True,
-			early_stopping=False,
-			validation_fraction=0.1,
-			beta_1=0.9,
-			beta_2=0.999,
-			epsilon=1e-08,
-			n_iter_no_change=10,
-			max_fun=15000)
-		if scaled:
-			mlp.fit(self.X_train_scaled, self.Y_train)
-			prediction = mlp.predict(self.X_test_scaled)
-		else:
-			mlp.fit(self.X_train, self.Y_train)
-			prediction = mlp.predict(self.X_test)
-		return prediction
 
 	def get_grid_search_knn(self, scaled = True):
 		"""
