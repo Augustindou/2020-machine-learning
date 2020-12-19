@@ -13,6 +13,8 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.neural_network import MLPRegressor
 from sklearn.feature_selection import mutual_info_regression
 from sklearn.ensemble import IsolationForest
+from sklearn.decomposition import KernelPCA
+from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.decomposition import KernelPCA, PCA
 
 #sklearn.preprocessing.normalize ??? je sais pas si il faut
@@ -159,6 +161,7 @@ class Project:
 		self.X1 = self.X1.drop(index=to_remove)
 		self.Y1 = self.Y1.drop(index=to_remove)
 		if VERBOSE : print(f"removed {len(to_remove)} outliers")
+
 	
 	def pca(self, n_features : int = 15):
 		"""
@@ -318,8 +321,76 @@ class Project:
 
 		return gs
 
+	def get_grid_search_etr(self):
+		scoring = {
+			'NegMSE': 'neg_mean_squared_error', 
+			'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
+		}
+		grid = {
+			'n_estimators' : [80, 100, 120, 150],
+			'max_features' : ['auto', 'sqrt', 'log2']
+		}
+		
+		gs = model_selection.GridSearchCV(
+			ExtraTreesRegressor(n_jobs=-1),
+			param_grid=grid,
+			scoring=scoring, 
+			refit='score_regression', 
+			return_train_score=True, 
+			error_score=0, 
+			n_jobs=-1, 
+			verbose=3)
+	
+		gs.fit(self.X_train, self.Y_train)
+		
+		if VERBOSE:
+			print("--- Grid search MLP ---")
+			print("best params:", gs.best_params_)
+			print("training score:", gs.best_score_)
 
+		return gs
 
+	#following code from https://scikit-learn.org/stable/auto_examples/model_selection/plot_multi_metric_evaluation.html#sphx-glr-auto-examples-model-selection-plot-multi-metric-evaluation-py
+	#param_as_abscice is the string representing a hyper-param -> exemple: 'n_estimators'
+	def plot_grid_search_perf(self, scoring, gs, param_as_abscice):
+		plt.figure(figsize=(13, 13))
+		plt.title("GridSearchCV evaluating using multiple scorers simultaneously", fontsize=16)
+
+		plt.xlabel(param_as_abscice)
+		plt.ylabel("Score")
+
+		ax = plt.gca()
+		ax.set_xlim(0, 402)
+		ax.set_ylim(0.73, 1)
+
+		# Get the regular numpy array from the MaskedArray
+		X_axis = np.array(gs[param_as_abscice].data, dtype=float)
+
+		for scorer, color in zip(sorted(scoring), ['g', 'k']):
+			for sample, style in (('train', '--'), ('test', '-')):
+				sample_score_mean = gs['mean_%s_%s' % (sample, scorer)]
+				sample_score_std = gs['std_%s_%s' % (sample, scorer)]
+				ax.fill_between(X_axis, sample_score_mean - sample_score_std,
+								sample_score_mean + sample_score_std,
+								alpha=0.1 if sample == 'test' else 0, color=color)
+				ax.plot(X_axis, sample_score_mean, style, color=color,
+						alpha=1 if sample == 'test' else 0.7,
+						label="%s (%s)" % (scorer, sample))
+
+			best_index = np.nonzero(gs['rank_test_%s' % scorer] == 1)[0][0]
+			best_score = gs['mean_test_%s' % scorer][best_index]
+
+			# Plot a dotted vertical line at the best score for that scorer marked by x
+			ax.plot([X_axis[best_index], ] * 2, [0, best_score],
+					linestyle='-.', color=color, marker='x', markeredgewidth=3, ms=8)
+
+			# Annotate the best score for that scorer
+			ax.annotate("%0.2f" % best_score,
+						(X_axis[best_index], best_score + 0.005))
+
+		plt.legend(loc="best")
+		plt.grid(False)
+		plt.show()
 
 
 p = Project()
@@ -350,10 +421,6 @@ print("score by LinearRegression:", score_regression(p.kpca_Y_test, prediction))
 # lasso scaled
 prediction,_ = p.predict_with_lasso(preprocessing = "kpca")
 print("score by Lasso testing:", score_regression(p.kpca_Y_test, prediction))	
-
-
-A = np.corrcoef(p.X_train, p.Y_train, rowvar=False)
-print(A[1,2])
 
 #/!\ preneur en temps mais beau et instructif sur les features donnant potentiellement les mêmes info.
 #proj.plotCorrelationMatrix(filename="correlation_matNotNormalized.svg", normalize=False)
