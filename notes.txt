@@ -1,22 +1,122 @@
-treshold : 0.8
+import Project_tests_Augustin as P; p = P.Project(); gs = p.get_grid_search_knn(); p.plot_grid_search_perf(P.scoring, gs, 'n_neighbors')
+
+
+threshold : 0.8
 best parameters : {'n_neighbors': 14, 'weights': 'distance'}
 training score (on trained data) : 0.4875134836749327
 score on test data : 0.4897852591035032
 
-treshold : 0.85
+threshold : 0.8
+best parameters : {'n_neighbors': 14, 'weights': 'uniform'}
+training score (on trained data) : 0.4813465904553446
+score on test data : 0.4829422989941524
+
+threshold : 0.8
+best parameters : {'n_neighbors': 16, 'weights': 'distance'}
+training score (on trained data) : 0.4846526561593455
+score on test data : 0.4853324487461607
+
+threshold : 0.8
+best parameters : {'n_neighbors': 13, 'weights': 'distance'}
+training score (on trained data) : 0.4833707143640054
+score on test data : 0.48145000841773034
+
+threshold : 0.8
+best parameters : {'n_neighbors': 10, 'weights': 'distance'}
+training score (on trained data) : 0.4883897829015913
+score on test data : 0.48273659124122137
+
+threshold : 0.8
+best parameters : {'n_neighbors': 13, 'weights': 'distance'}
+training score (on trained data) : 0.4929289509183934
+score on test data : 0.4734800905232196
+
+threshold : 0.8
+best parameters : {'n_neighbors': 10, 'weights': 'distance'}
+training score (on trained data) : 0.4945951573111442
+score on test data : 0.4862032564406072
+
+threshold : 0.8
+best parameters : {'n_neighbors': 10, 'weights': 'distance'}
+training score (on trained data) : 0.48383390009790295
+score on test data : 0.48153215417557915
+
+threshold : 0.85
 best parameters : {'n_neighbors': 16, 'weights': 'distance'}
 training score (on trained data) : 0.4875245875445421
 score on test data : 0.47974625685810035
 
-treshold : 0.75
+threshold : 0.75
 indexError
 
-treshold : 0.9
+threshold : 0.9
 best parameters : {'n_neighbors': 13, 'weights': 'uniform'}
 training score (on trained data) : 0.4895467767550904
 score on test data : 0.48708008389581114
 
-treshold : 0.9
-best parameters : {'n_neighbors': 13, 'weights': 'uniform'}
-training score (on trained data) : 0.4895467767550904
-score on test data : 0.48708008389581114
+threshold : 0.9
+best parameters : {'n_neighbors': 15, 'weights': 'distance'}
+training score (on trained data) : 0.4771799406136378
+score on test data : 0.4740320952899323
+
+threshold : 0.9
+best parameters : {'n_neighbors': 13, 'weights': 'distance'}
+training score (on trained data) : 0.4881682552737267
+score on test data : 0.47519931711916763
+
+
+{   
+    'mean_fit_time': array([0.33287683, 0.22241669, 0.44784079, 0.25451751, 0.43177352, 0.3947042 ]), 
+    'std_fit_time': array([0.16971463, 0.07518541, 0.11242571, 0.20041936, 0.09030366, 0.03625221]), 
+    'mean_score_time': array([6.80416737, 6.74521132, 6.93920584, 6.87058592, 6.70355973, 4.87110052]), 
+    'std_score_time': array([0.15245468, 0.13663236, 0.14360966, 0.17423496, 1.00868011, 0.11723187]), 
+    'param_n_neighbors': masked_array(data=[8, 8, 10, 10, 12, 12], 
+                            mask=[False, False, False, False, False, False],
+                            fill_value='?',
+                            dtype=object), 
+    'param_weights': masked_array(data=['uniform', 'distance', 'uniform', 'distance', 'uniform', 'distance'],
+                            mask=[False, False, False, False, False, False],
+                            fill_value='?',
+                            dtype=object), 
+    'params': [
+            {'n_neighbors': 8, 'weights': 'uniform'}, 
+            {'n_neighbors': 8, 'weights': 'distance'}, 
+            {'n_neighbors': 10, 'weights': 'uniform'}, 
+            {'n_neighbors': 10, 'weights': 'distance'}, 
+            {'n_neighbors': 12, 'weights': 'uniform'}, 
+            {'n_neighbors': 12, 'weights': 'distance'}], 
+    
+    'split0_test_NegMSE': array([-58672878.83882755, -58635947.34079775, -57963741.55048903, -57806243.58925439, -57455159.08158682, -57049547.64046796]), 
+    'split1_test_NegMSE': array([-87480642.22874376, -86563683.6382082 , -84346523.54313146, -83695773.34387267, -80872904.44741404, -80463183.68970197]), 
+    'split2_test_NegMSE': array([-63110324.65890183, -62876075.43631896, -64456506.76801664, -63292424.00268801, -60102105.60118321, -59554152.71788421]), 
+    'split3_test_NegMSE': array([-1.18534715e+08, -1.18778186e+08, -1.15422802e+08, -1.15574532e+08, -1.12527650e+08, -1.12851540e+08]), 
+    'split4_test_NegMSE': array([-4.92064536e+08, -4.91784107e+08, -4.92142935e+08, -4.91856615e+08, -4.88158877e+08, -4.88166952e+08]), 
+    'mean_test_NegMSE': array([-1.63972619e+08, -1.63727600e+08, -1.62866502e+08, -1.62445118e+08, -1.59823339e+08, -1.59617075e+08]), 
+    'std_test_NegMSE': array([1.65421383e+08, 1.65415282e+08, 1.65848351e+08, 1.65946254e+08, 1.65346816e+08, 1.65487197e+08]), 
+    'rank_test_NegMSE': array([6, 5, 4, 3, 2, 1], dtype=int32), 
+    
+    'split0_train_NegMSE': array([-1.52929959e+08, -0.00000000e+00, -1.56563466e+08, -0.00000000e+00, -1.60503191e+08, -0.00000000e+00]), 
+    'split1_train_NegMSE': array([-1.47053592e+08, -0.00000000e+00, -1.50253185e+08, -0.00000000e+00, -1.53441225e+08, -0.00000000e+00]), 
+    'split2_train_NegMSE': array([-1.52611453e+08, -0.00000000e+00, -1.58101338e+08, -0.00000000e+00, -1.60378657e+08, -0.00000000e+00]), 
+    'split3_train_NegMSE': array([-1.39833778e+08, -0.00000000e+00, -1.44936730e+08, -0.00000000e+00, -1.46164931e+08, -0.00000000e+00]), 
+    'split4_train_NegMSE': array([-54893555.60563935,        -0.        , -56520761.88308461, -0.        , -57843979.14397143,        -0.        ]),
+    'mean_train_NegMSE': array([-1.29464467e+08,  0.00000000e+00, -1.33275096e+08,  0.00000000e+00, -1.35666397e+08,  0.00000000e+00]),
+    'std_train_NegMSE': array([37587585.68772532,        0.        , 38663076.62596536, 0.        , 39268446.77135611,        0.        ]),
+    
+    'split0_test_score_regression': array([0.48380074, 0.48399558, 0.49233301, 0.4886174 , 0.49006192, 0.48794022]),
+    'split1_test_score_regression': array([0.47952426, 0.48171854, 0.47861195, 0.48019618, 0.47849294, 0.47667566]),
+    'split2_test_score_regression': array([0.49138915, 0.48772644, 0.49024211, 0.49300298, 0.48979313, 0.48991339]),
+    'split3_test_score_regression': array([0.48403297, 0.48751286, 0.48248011, 0.48332867, 0.4779258 , 0.48182227]),
+    'split4_test_score_regression': array([0.49519573, 0.49786777, 0.49407964, 0.4968037 , 0.5014629 , 0.50183443]),
+    'mean_test_score_regression': array([0.48678857, 0.48776424, 0.48754937, 0.48838978, 0.48754734, 0.4876372 ]),
+    'std_test_score_regression': array([0.00567691, 0.0055299 , 0.0059725 , 0.00608075, 0.00871282, 0.00849474]),
+    'rank_test_score_regression': array([6, 2, 4, 1, 5, 3], dtype=int32),
+    
+    'split0_train_score_regression': array([0.55324287, 1.        , 0.54331421, 1.        , 0.53830874, 1.        ]),
+    'split1_train_score_regression': array([0.55710353, 1.        , 0.54502699, 1.        , 0.53496844, 1.        ]),
+    'split2_train_score_regression': array([0.56469558, 1.        , 0.54616028, 1.        , 0.53952137, 1.        ]),
+    'split3_train_score_regression': array([0.5584403 , 1.        , 0.5476033 , 1.        , 0.54447885, 1.        ]),
+    'split4_train_score_regression': array([0.55408772, 1.        , 0.53682906, 1.        , 0.53499301, 1.        ]),
+    'mean_train_score_regression': array([0.557514  , 1.        , 0.54378677, 1.        , 0.53845408, 1.        ]),
+    'std_train_score_regression': array([0.00406408, 0.        , 0.00375155, 0.        , 0.00350961, 0.        ])
+}
