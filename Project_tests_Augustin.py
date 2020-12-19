@@ -71,11 +71,12 @@ class Project:
 		if VERBOSE : print("\n--- Preprocessing ---")
 		self.read_data()
 		self.normalize_data()
+		self.remove_outliers()
 
 		if VERBOSE : print("\n--- Feature Selection ---")
 		self.days_one_hot_to_sin_cos()
 		self.pca() # pca ? kernel_pca ?
-		# self.kernel_pca()
+		self.kernel_pca()
 
 		if VERBOSE : print("\n--- Splitting data ---")
 		self.split_data()
@@ -103,9 +104,9 @@ class Project:
 		self.X_train, self.X_test, self.Y_train, self.Y_test = model_selection.train_test_split(self.X1, self.Y1, test_size=test_size)
 
 		if hasattr(self, 'pca_X1'):
-			self.pca_X_train, self.pca_X_test, self.Y_train, self.Y_test = model_selection.train_test_split(self.pca_X1, self.Y1, test_size=test_size)
+			self.pca_X_train, self.pca_X_test, self.pca_Y_train, self.pca_Y_test = model_selection.train_test_split(self.pca_X1, self.Y1, test_size=test_size)
 		if hasattr(self, 'kpca_X1'):
-			self.kpca_X_train, self.kpca_X_test, self.Y_train, self.Y_test = model_selection.train_test_split(self.kpca_X1, self.Y1, test_size=test_size)
+			self.kpca_X_train, self.kpca_X_test, self.kpca_Y_train, self.kpca_Y_test = model_selection.train_test_split(self.kpca_X1, self.Y1, test_size=test_size)
 
 		if VERBOSE : print(f"Data has been split between train and test, with {test_size*100}% of the data used as testing data")
 
@@ -157,8 +158,7 @@ class Project:
 		to_remove = np.arange(0,len(index),1)[index==-1]
 		self.X1 = self.X1.drop(index=to_remove)
 		self.Y1 = self.Y1.drop(index=to_remove)
-		if VERBOSE : print("removed " + len(to_remove)+ " outliers")
-
+		if VERBOSE : print(f"removed {len(to_remove)} outliers")
 	
 	def pca(self, n_features : int = 15):
 		"""
@@ -222,10 +222,10 @@ class Project:
 		"""
 		linear_regressor = LinearRegression(fit_intercept=True, normalize=False, n_jobs=-1)
 		if preprocessing == 'pca':
-			linear_regressor.fit(self.pca_X_train, self.Y_train)
+			linear_regressor.fit(self.pca_X_train, self.pca_Y_train)
 			prediction = linear_regressor.predict(self.pca_X_test)
 		elif preprocessing == 'kpca':
-			linear_regressor.fit(self.kpca_X_train, self.Y_train)
+			linear_regressor.fit(self.kpca_X_train, self.kpca_Y_train)
 			prediction = linear_regressor.predict(self.kpca_X_test)
 		else:
 			linear_regressor.fit(self.X_train, self.Y_train)
@@ -240,10 +240,10 @@ class Project:
 		lasso = Lasso(alpha=1.0, fit_intercept=True, normalize=False, max_iter=max_iter, tol=tol, warm_start=warm_start, selection='random')
 		# we can also use selection='cyclic' to loop over features sequentially
 		if preprocessing == 'pca':
-			lasso.fit(self.pca_X_train, self.Y_train)
+			lasso.fit(self.pca_X_train, self.pca_Y_train)
 			prediction = lasso.predict(self.pca_X_test)
 		elif preprocessing == 'kpca':
-			lasso.fit(self.kpca_X_train, self.Y_train)
+			lasso.fit(self.kpca_X_train, self.kpca_Y_train)
 			prediction = lasso.predict(self.kpca_X_test)
 		else:
 			lasso.fit(self.X_train, self.Y_train)
@@ -337,20 +337,20 @@ print("score by Lasso testing:", score_regression(p.Y_test, prediction))	# 0.483
 print("--- PCA ---")
 # linear regression scaled
 prediction,_ = p.predict_with_linear_regression(preprocessing = "pca")
-print("score by LinearRegression:", score_regression(p.Y_test, prediction)) 
+print("score by LinearRegression:", score_regression(p.pca_Y_test, prediction)) 
 
 # lasso scaled
 prediction,_ = p.predict_with_lasso(preprocessing = "pca")
-print("score by Lasso testing:", score_regression(p.Y_test, prediction))	
+print("score by Lasso testing:", score_regression(p.pca_Y_test, prediction))	
 
-# print("--- Kernel PCA ---")
-# # linear regression scaled
-# prediction,_ = p.predict_with_linear_regression(preprocessing = "kpca")
-# print("score by LinearRegression:", score_regression(p.Y_test, prediction)) 
+print("--- Kernel PCA ---")
+# linear regression scaled
+prediction,_ = p.predict_with_linear_regression(preprocessing = "kpca")
+print("score by LinearRegression:", score_regression(p.kpca_Y_test, prediction)) 
 
-# # lasso scaled
-# prediction,_ = p.predict_with_lasso(preprocessing = "kpca")
-# print("score by Lasso testing:", score_regression(p.Y_test, prediction))	
+# lasso scaled
+prediction,_ = p.predict_with_lasso(preprocessing = "kpca")
+print("score by Lasso testing:", score_regression(p.kpca_Y_test, prediction))	
 
 
 A = np.corrcoef(p.X_train, p.Y_train, rowvar=False)
