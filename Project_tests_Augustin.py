@@ -72,13 +72,15 @@ class Project:
 		# WIP
 		if VERBOSE : print("\n--- Preprocessing ---")
 		self.read_data()
+		# put days_one_hot_to_sin_cos() before normalize if we want to have a normal one-hot encoding
+		self.days_one_hot_to_sin_cos()
 		self.normalize_data()
 		self.remove_outliers()
 
 		if VERBOSE : print("\n--- Feature Selection ---")
-		self.days_one_hot_to_sin_cos()
+		self.remove_correlation_features()
 		self.pca() # pca ? kernel_pca ?
-		self.kernel_pca()
+		# self.kernel_pca()
 
 		if VERBOSE : print("\n--- Splitting data ---")
 		self.split_data()
@@ -117,13 +119,20 @@ class Project:
 		Normalize the data 
 		DOC : https://scikit-learn.org/stable/modules/neural_networks_supervised.html#tips-on-practical-use
 		"""
-		# normalize the full data
-		if hasattr(self, 'X1'):	
-			scaler = StandardScaler()
-			self.X1_scaled = scaler.fit_transform(self.X1)
-			if VERBOSE : print("X1 has been normalized")
-		elif VERBOSE : print("Instance has no attribute 'X1', try running read_data() before normalizing")
-	
+		scaler = StandardScaler()
+		self.X1 = pd.DataFrame(data = scaler.fit_transform(self.X1), index=self.X1.index, columns=self.X1.columns)
+		if VERBOSE : print("X1 has been normalized")
+		
+	def remove_outliers(self):
+		if VERBOSE : print("Transformed one-hot encodings in sin-cos weekdays & dropped one-hot encodings")
+		
+		isolation_forest = IsolationForest(n_jobs=-1)
+		index = isolation_forest.fit_predict(np.append(self.X1, self.Y1, axis=1))
+		to_remove = np.arange(0,len(index),1)[index==-1]
+		self.X1 = self.X1.drop(index=to_remove)
+		self.Y1 = self.Y1.drop(index=to_remove)
+		if VERBOSE : print(f"removed {len(to_remove)} outliers")
+
 	def days_one_hot_to_sin_cos(self):
 		# transform one-hot into list : monday = 0, tuesday = 1, ...
 		l = np.zeros(len(self.X1['weekday_is_monday']))
@@ -143,25 +152,14 @@ class Project:
 			elif fri == 1 : l[idx] = 4; continue
 			elif sat == 1 : l[idx] = 5; continue
 			elif sun == 1 : l[idx] = 6; continue
-	
-		# create new columns
-		self.X1.loc[:, 'weekday_sin'] = np.sin(l*2*np.pi/7)
-		self.X1.loc[:, 'weekday_cos'] = np.cos(l*2*np.pi/7)
+
+		l *= 2*np.pi/7
+		self.X1.loc[:, 'weekday_sin'] = np.sin(l)
+		self.X1.loc[:, 'weekday_cos'] = np.cos(l)
 
 		# drop old columns
 		col = ['weekday_is_monday', 'weekday_is_tuesday', 'weekday_is_wednesday', 'weekday_is_thursday', 'weekday_is_friday', 'weekday_is_saturday', 'weekday_is_sunday']
 		self.X1 = self.X1.drop(columns = col)
-		
-		if VERBOSE : print("Transformed one-hot encodings in sin-cos weekdays & dropped one-hot encodings")
-		
-	def remove_outliers(self):
-		isolation_forest = IsolationForest(n_jobs=-1)
-		index = isolation_forest.fit_predict(np.append(self.X1, self.Y1, axis=1))
-		to_remove = np.arange(0,len(index),1)[index==-1]
-		self.X1 = self.X1.drop(index=to_remove)
-		self.Y1 = self.Y1.drop(index=to_remove)
-		if VERBOSE : print(f"removed {len(to_remove)} outliers")
-
 	
 	def pca(self, n_features : int = 15):
 		"""
@@ -207,17 +205,17 @@ class Project:
 		if VERBOSE : print(f"Saved correlation matrix to '{filename}'")
 
 	def remove_correlation_features(self, th=0.9):
-		cor = np.abs(np.corrcoef(self.X1_scaled, self.Y1.values, rowvar=False))
-		upperCor = np.triu(cor, k=1)[:-1,:-1]						#k=1 to ignore the diagonal and [:-1,:-1] to ignore the correlation with the target
-		stronglyCorrelated = np.argwhere(upperCor > th)
-		mutualInfo = mutual_info_regression(self.X1_scaled, np.ravel(self.Y1))	#quite slow
-		for pair in stronglyCorrelated:
-			if VERBOSE : print("those features are highly corelated:", self.X1.columns.values[pair], "they have a correlation of", upperCor[pair[0],pair[1]] )
-			indexToRemove = pair[np.argsort(mutualInfo[pair])[0]]	#desole Guss, je sais c'est pas lisible mais il est tard donc je m embete pas
-			nameToRemove = self.X1.columns[indexToRemove]
-			if VERBOSE : print("their mutual information with the target:", mutualInfo[pair])
-			if VERBOSE : print(nameToRemove, "has the lowest mutual info with the target. I remove it")
-			self.X1 = self.X1.drop(nameToRemove, axis=1)
+		cor = np.abs(np.corrcoef(self.X1, self.Y1.values, rowvar=False))
+		upper_cor = np.triu(cor, k=1)[:-1,:-1]						#k=1 to ignore the diagonal and [:-1,:-1] to ignore the correlation with the target
+		strongly_correlated = np.argwhere(upper_cor > th)
+		mutual_info = mutual_info_regression(self.X1, np.ravel(self.Y1))	#quite slow
+		for pair in strongly_correlated:
+			if VERBOSE : print("those features are highly corelated:", self.X1.columns.values[pair], "they have a correlation of", upper_cor[pair[0],pair[1]] )
+			index_to_remove = pair[np.argsort(mutual_info[pair])[0]]
+			name_to_remove = self.X1.columns[index_to_remove]
+			if VERBOSE : print("their mutual information with the target:", mutual_info[pair])
+			if VERBOSE : print(name_to_remove, "has the lowest mutual info with the target. I remove it")
+			self.X1 = self.X1.drop(name_to_remove, axis=1)
 
 	def predict_with_linear_regression(self, preprocessing = 'default'):
 		"""
@@ -262,7 +260,7 @@ class Project:
 			'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
 		}
 		grid = {
-			'n_neighbors': [3, 5, 7, 9, 13, 15, 20, 30],
+			'n_neighbors': [13, 14, 15, 16],
 			'weights': ['uniform', 'distance']
 		}
 
@@ -281,8 +279,9 @@ class Project:
 
 		if VERBOSE :
 			print("--- Grid search KNN ---")
-			print("best parameters:", gs.best_params_)
-			print("training score (on trained data):", gs.best_score_)
+			print(f"best parameters : {gs.best_params_}")
+			print(f"training score (on trained data) : {gs.best_score_}")
+			print(f"score on test data : {gs.score(self.X_test, self.Y_test)}")
 
 		return gs
 
@@ -393,34 +392,41 @@ class Project:
 		plt.show()
 
 
-p = Project()
 
-print("\n--- Normal ---")
-# linear regression scaled
-prediction,_ = p.predict_with_linear_regression()
-print("score by LinearRegression:", score_regression(p.Y_test, prediction)) # 0.48243917542285	
 
-# lasso scaled
-prediction,_ = p.predict_with_lasso()
-print("score by Lasso testing:", score_regression(p.Y_test, prediction))	# 0.4834171812808842
+scoring = {
+	'NegMSE': 'neg_mean_squared_error', 
+	'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
+}
 
-print("\n--- PCA ---")
-# linear regression scaled
-prediction,_ = p.predict_with_linear_regression(preprocessing = "pca")
-print("score by LinearRegression:", score_regression(p.pca_Y_test, prediction)) 
+# p = Project()
 
-# lasso scaled
-prediction,_ = p.predict_with_lasso(preprocessing = "pca")
-print("score by Lasso testing:", score_regression(p.pca_Y_test, prediction))	
+# print("\n--- Normal ---")
+# # linear regression scaled
+# prediction,_ = p.predict_with_linear_regression()
+# print("score by LinearRegression:", score_regression(p.Y_test, prediction)) # 0.48243917542285	
 
-print("\n--- Kernel PCA ---")
-# linear regression scaled
-prediction,_ = p.predict_with_linear_regression(preprocessing = "kpca")
-print("score by LinearRegression:", score_regression(p.kpca_Y_test, prediction)) 
+# # lasso scaled
+# prediction,_ = p.predict_with_lasso()
+# print("score by Lasso testing:", score_regression(p.Y_test, prediction))	# 0.4834171812808842
 
-# lasso scaled
-prediction,_ = p.predict_with_lasso(preprocessing = "kpca")
-print("score by Lasso testing:", score_regression(p.kpca_Y_test, prediction))	
+# print("\n--- PCA ---")
+# # linear regression scaled
+# prediction,_ = p.predict_with_linear_regression(preprocessing = "pca")
+# print("score by LinearRegression:", score_regression(p.pca_Y_test, prediction)) 
+
+# # lasso scaled
+# prediction,_ = p.predict_with_lasso(preprocessing = "pca")
+# print("score by Lasso testing:", score_regression(p.pca_Y_test, prediction))	
+
+# print("\n--- Kernel PCA ---")
+# # linear regression scaled
+# prediction,_ = p.predict_with_linear_regression(preprocessing = "kpca")
+# print("score by LinearRegression:", score_regression(p.kpca_Y_test, prediction)) 
+
+# # lasso scaled
+# prediction,_ = p.predict_with_lasso(preprocessing = "kpca")
+# print("score by Lasso testing:", score_regression(p.kpca_Y_test, prediction))	
 
 #/!\ preneur en temps mais beau et instructif sur les features donnant potentiellement les mêmes info.
 #proj.plotCorrelationMatrix(filename="correlation_matNotNormalized.svg", normalize=False)

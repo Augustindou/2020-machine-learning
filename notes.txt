@@ -1,0 +1,22 @@
+treshold : 0.8
+best parameters : {'n_neighbors': 14, 'weights': 'distance'}
+training score (on trained data) : 0.4875134836749327
+score on test data : 0.4897852591035032
+
+treshold : 0.85
+best parameters : {'n_neighbors': 16, 'weights': 'distance'}
+training score (on trained data) : 0.4875245875445421
+score on test data : 0.47974625685810035
+
+treshold : 0.75
+indexError
+
+treshold : 0.9
+best parameters : {'n_neighbors': 13, 'weights': 'uniform'}
+training score (on trained data) : 0.4895467767550904
+score on test data : 0.48708008389581114
+
+treshold : 0.9
+best parameters : {'n_neighbors': 13, 'weights': 'uniform'}
+training score (on trained data) : 0.4895467767550904
+score on test data : 0.48708008389581114
