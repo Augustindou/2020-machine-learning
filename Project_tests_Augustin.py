@@ -14,6 +14,7 @@ from sklearn.neural_network import MLPRegressor
 from sklearn.feature_selection import mutual_info_regression
 from sklearn.ensemble import IsolationForest
 from sklearn.decomposition import KernelPCA
+from sklearn.ensemble import ExtraTreesRegressor
 
 #sklearn.preprocessing.normalize ??? je sais pas si il faut
 
@@ -71,9 +72,12 @@ class Project:
 		if VERBOSE: print("\n--- Preprocessing ---")
 		self.read_data()
 		self.normalize_data()
-
+		
 		if VERBOSE: print("\n--- Feature Selection ---")
 		self.feature_selection()
+
+		if VERBOSE: print("\n--- Outliers Removal ---")
+		self.remove_outliers()
 
 		if VERBOSE: print("\n--- Splitting data ---")
 		self.split_data()
@@ -153,7 +157,7 @@ class Project:
 		to_remove = np.arange(0,len(index),1)[index==-1]
 		self.X1 = self.X1.drop(index=to_remove)
 		self.Y1 = self.Y1.drop(index=to_remove)
-		if VERBOSE : print("removed " + len(to_remove)+ " outliers")
+		if VERBOSE : print(f"removed {len(to_remove)} outliers")
 
 	
 	def kernel_pca(self, n_features : int = 15, kernel = 'linear'):
@@ -288,19 +292,37 @@ class Project:
 
 		return gs
 
+	def get_grid_search_etr(self):
+		scoring = {
+			'NegMSE': 'neg_mean_squared_error', 
+			'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
+		}
+		grid = {
+			'n_estimators' : [80, 100, 120, 150],
+			'max_features' : ['auto', 'sqrt', 'log2']
+		}
+		
+		gs = model_selection.GridSearchCV(
+			ExtraTreesRegressor(n_jobs=-1),
+			param_grid=grid,
+			scoring=scoring, 
+			refit='score_regression', 
+			return_train_score=True, 
+			error_score=0, 
+			n_jobs=-1, 
+			verbose=3)
+	
+		gs.fit(self.X_train, self.Y_train)
+		
+		if VERBOSE:
+			print("--- Grid search MLP ---")
+			print("best params:", gs.best_params_)
+			print("training score:", gs.best_score_)
 
-
+		return gs
 
 
 p = Project()
-
-# linear regression not scaled
-prediction,_ = p.predict_with_linear_regression(scaled=False)
-print("score by LinearRegression testing (not scaled):", score_regression(p.Y_test, prediction))	# 0.48896528584814974
-
-# lasso not scaled
-prediction,_ = p.predict_with_lasso(scaled=False)
-print("score by Lasso testing (not scaled):", score_regression(p.Y_test, prediction))	# 0.488894300572261
 
 # linear regression scaled
 prediction,_ = p.predict_with_linear_regression()
@@ -309,11 +331,6 @@ print("score by LinearRegression (scaled):", score_regression(p.Y_test, predicti
 # lasso scaled
 prediction,_ = p.predict_with_lasso()
 print("score by Lasso testing (scaled):", score_regression(p.Y_test, prediction))	# 0.4834171812808842
-
-
-A = np.corrcoef(p.X_train, p.Y_train, rowvar=False)
-B = np.corrcoef(p.X_train_scaled, p.Y_train, rowvar=False)
-print(A[1,2], B[1,2])
 
 #/!\ preneur en temps mais beau et instructif sur les features donnant potentiellement les mêmes info.
 #proj.plotCorrelationMatrix(filename="correlation_matNotNormalized.svg", normalize=False)
