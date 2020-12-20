@@ -57,7 +57,7 @@ Functions not depending on the class instance
 def normalize_data_as_panda(data : pd.DataFrame, scaler = StandardScaler()) -> pd.DataFrame:
 	"""
 	Function to normalise a panda DataFrame.
-	@param:	
+	@param:
 		data: a panda [DataFrame] to normalize
 		scaler: the scaler to use
 	@returns: a normalized panda [DataFrame]
@@ -74,25 +74,27 @@ class Project:
 
 	def __init__(self):
 		# WIP
-		if VERBOSE : print("\n--- Preprocessing ---")
+		if VERBOSE : print("\n--- Reading the files ---")
 		self.read_data()
+
+		if VERBOSE : print("\n--- Preprocessing ---")
 		# put days_one_hot_to_sin_cos() before normalize if we want to have a normal one-hot encoding
-		self.days_one_hot_to_sin_cos()
+		self.X1 = self.days_one_hot_to_sin_cos(self.X1)
+		self.X2 = self.days_one_hot_to_sin_cos(self.X2)
+		self.split_data()
 		self.normalize_data()
-		self.remove_outliers()
+		self.remove_outliers_on_train_set()
 
 		if VERBOSE : print("\n--- Feature Selection ---")
 		self.remove_correlation_features()
 		# self.pca()
 		# self.kernel_pca()
 
-		if VERBOSE : print("\n--- Splitting data ---")
-		self.split_data()
-
 
 	def read_data(self,
 		X1_file : str = "X1.csv",
-		Y1_file : str = "Y1.csv") -> None:
+		Y1_file : str = "Y1.csv",
+		X2_file : str = "X2.csv") -> None:
 		"""
 		read the data from the input files
 		"""
@@ -100,9 +102,10 @@ class Project:
 		# load the input and output files
 		self.X1 : pd.DataFrame = pd.read_csv(X1_file)
 		self.Y1 : pd.DataFrame = pd.read_csv(Y1_file, header=None, names=['shares '])
-		if VERBOSE : print(f"Data has been retrieved from files '{X1_file}' and '{Y1_file}'")
+		self.X2 : pd.DataFrame = pd.read_csv(X2_file)
+		if VERBOSE : print(f"Data has been retrieved from files '{X1_file}' and '{Y1_file}' and '{X2_file}'")
 
-	def split_data(self, 
+	def split_data(self,
 		test_size : float = 0.20):
 		"""
 		split the data between training and testing
@@ -113,32 +116,35 @@ class Project:
 
 	def normalize_data(self):
 		"""
-		Normalize the data 
+		Normalize the data
 		DOC : https://scikit-learn.org/stable/modules/neural_networks_supervised.html#tips-on-practical-use
 		"""
 		scaler = StandardScaler()
-		self.X1 = pd.DataFrame(data = scaler.fit_transform(self.X1), index=self.X1.index, columns=self.X1.columns)
-		if VERBOSE : print("X1 has been normalized")
-		
-	def remove_outliers(self):
+		self.X_train = pd.DataFrame(data = scaler.fit_transform(self.X_train), columns=self.X1.columns)
+		self.X_test = pd.DataFrame(data = scaler.transform(self.X_test), columns=self.X1.columns)
+		self.X2 = pd.DataFrame(data = scaler.transform(self.X2), index=self.X2.index, columns=self.X2.columns)
+		if VERBOSE : print("X_train, X_test and X2 has been normalized")
+
+	def remove_outliers_on_train_set(self):
 		isolation_forest = IsolationForest(n_jobs=-1)
-		index = isolation_forest.fit_predict(np.append(self.X1, self.Y1, axis=1))
-		to_remove = np.arange(0,len(index),1)[index==-1]
-		self.X1 = self.X1.drop(index=to_remove)
-		self.Y1 = self.Y1.drop(index=to_remove)
+		index = isolation_forest.fit_predict(np.append(self.X_train, self.Y_train, axis=1))
+		to_remove = self.X_train.index[index==-1]
+		self.X_train = self.X_train.drop(index=to_remove)
+		to_remove = self.Y_train.index[index==-1]
+		self.Y_train = self.Y_train.drop(index=to_remove)
 		if VERBOSE : print(f"removed {len(to_remove)} outliers")
 
-	def days_one_hot_to_sin_cos(self):
+	def days_one_hot_to_sin_cos(self, data):
 		# transform one-hot into list : monday = 0, tuesday = 1, ...
-		l = np.zeros(len(self.X1['weekday_is_monday']))
+		l = np.zeros(len(data['weekday_is_monday']))
 		for idx, mon, tue, wed, thu, fri, sat, sun in zip(range(len(l)),
-			self.X1['weekday_is_monday'], 
-			self.X1['weekday_is_tuesday'],
-			self.X1['weekday_is_wednesday'],
-			self.X1['weekday_is_thursday'],
-			self.X1['weekday_is_friday'],
-			self.X1['weekday_is_saturday'],
-			self.X1['weekday_is_sunday']):
+			data['weekday_is_monday'],
+			data['weekday_is_tuesday'],
+			data['weekday_is_wednesday'],
+			data['weekday_is_thursday'],
+			data['weekday_is_friday'],
+			data['weekday_is_saturday'],
+			data['weekday_is_sunday']):
 
 			if   mon == 1 : l[idx] = 0; continue
 			elif tue == 1 : l[idx] = 1; continue
@@ -149,15 +155,16 @@ class Project:
 			elif sun == 1 : l[idx] = 6; continue
 
 		l *= 2*np.pi/7
-		self.X1.loc[:, 'weekday_sin'] = np.sin(l)
-		self.X1.loc[:, 'weekday_cos'] = np.cos(l)
+		data.loc[:, 'weekday_sin'] = np.sin(l)
+		data.loc[:, 'weekday_cos'] = np.cos(l)
 
 		# drop old columns
 		col = ['weekday_is_monday', 'weekday_is_tuesday', 'weekday_is_wednesday', 'weekday_is_thursday', 'weekday_is_friday', 'weekday_is_saturday', 'weekday_is_sunday']
-		self.X1 = self.X1.drop(columns = col)
-		
+		data = data.drop(columns = col)
+
 		if VERBOSE : print("Transformed one-hot encodings in sin-cos weekdays & dropped one-hot encodings")
-	
+		return data
+
 	def pca(self, n_features : int = n_features_pca_kpca):
 		"""
 		PCA for feature selection
@@ -165,8 +172,10 @@ class Project:
 		"""
 		n_features_start = len(self.X1.columns)
 		pca = PCA(n_components=n_features)
-		self.X1 = pd.DataFrame(pca.fit_transform(self.X1))
-		if VERBOSE : print(f"PCA used on X1 : from {n_features_start} to {n_features} features")
+		self.X_train = pd.DataFrame(pca.fit_transform(self.X_train))
+		self.X_test = pd.DataFrame(pca.transform(self.X_test))
+		self.X2 = pd.DataFrame(pca.fit_transform(self.X2))
+		if VERBOSE : print(f"PCA used on X_train : from {n_features_start} to {n_features} features")
 
 	def kernel_pca(self, n_features : int = n_features_pca_kpca, kernel='linear'):
 		"""
@@ -175,9 +184,11 @@ class Project:
 		"""
 		n_features_start = len(self.X1.columns)
 		kpca = KernelPCA(n_components=n_features, kernel=kernel, gamma=1/n_features, n_jobs=-1)
-		self.X1 = pd.DataFrame(kpca.fit_transform(self.X1))
-		if VERBOSE : print(f"KernelPCA used on X1 : from {n_features_start} to {n_features} features")
-	
+		self.X1 = pd.DataFrame(kpca.fit_transform(self.X_train))
+		self.X_test = pd.DataFrame(kpca.transform(self.X_test))
+		self.X2 = pd.DataFrame(kpca.fit_transform(self.X2))
+		if VERBOSE : print(f"KernelPCA used on X_train : from {n_features_start} to {n_features} features")
+
 	def describe_features(self):
 		"""
 		Print a description of the features
@@ -202,20 +213,21 @@ class Project:
 		if VERBOSE : print(f"Saved correlation matrix to '{filename}'")
 
 	def remove_correlation_features(self, th=0.85):
-		cor = np.abs(np.corrcoef(self.X1, self.Y1.values, rowvar=False))
+		cor = np.abs(np.corrcoef(self.X_train, self.Y_train.values, rowvar=False))
 		upper_cor = np.triu(cor, k=1)[:-1,:-1]						#k=1 to ignore the diagonal and [:-1,:-1] to ignore the correlation with the target
 		strongly_correlated = np.argwhere(upper_cor > th)
-		mutual_info = mutual_info_regression(self.X1, np.ravel(self.Y1))	#quite slow
+		mutual_info = mutual_info_regression(self.X_train, np.ravel(self.Y_train))	#quite slow
 		set_to_remove = set()
 		for pair in strongly_correlated:
-			if VERBOSE : print("these features are highly corelated:", self.X1.columns.values[pair], "they have a correlation of", upper_cor[pair[0],pair[1]] )
+			if VERBOSE : print("these features are highly corelated:", self.X_train.columns.values[pair], "they have a correlation of", upper_cor[pair[0],pair[1]] )
 			if (pair[0] not in set_to_remove) and (pair[1] not in set_to_remove):
 				index_to_remove = pair[np.argsort(mutual_info[pair])[0]]
-				name_to_remove = self.X1.columns[index_to_remove]
+				name_to_remove = self.X_train.columns[index_to_remove]
 				if VERBOSE : print("their mutual information with the target:", mutual_info[pair])
 				if VERBOSE : print(name_to_remove, "has the lowest mutual info with the target. I will remove it")
 				set_to_remove.add(name_to_remove)
-		self.X1 = self.X1.drop(list(set_to_remove), axis=1)
+		self.X_train = self.X_train.drop(list(set_to_remove), axis=1)
+		self.X2 = self.X2.drop(list(set_to_remove), axis=1)
 		if VERBOSE : print(f"removed {len(set_to_remove)} correlated features")
 
 	def predict_with_linear_regression(self):
@@ -229,21 +241,21 @@ class Project:
 
 	def predict_with_lasso(self, max_iter : int = 1100, tol : float = 1e-4, warm_start : bool = False):
 		"""
-		Linear model trained with L1 prior as regularizer (aka the Lasso). 
+		Linear model trained with L1 prior as regularizer (aka the Lasso).
 		DOC : https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html#sklearn.linear_model.Lasso:
 		"""
 		lasso = Lasso(alpha=1.0, fit_intercept=True, normalize=False, max_iter=max_iter, tol=tol, warm_start=warm_start, selection='random')
 		# we can also use selection='cyclic' to loop over features sequentially
 		lasso.fit(self.X_train, self.Y_train)
 		prediction = lasso.predict(self.X_test)
-		return prediction, lasso.coef_	
+		return prediction, lasso.coef_
 
 	def get_grid_search_knn(self):
 		"""
 		DOC : https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
 		"""
 		scoring = {
-			'NegMSE': 'neg_mean_squared_error', 
+			'NegMSE': 'neg_mean_squared_error',
 			'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
 		}
 		grid = {
@@ -254,15 +266,15 @@ class Project:
 
 		# parameter refit='score_regression', refits an estimator on the whole dataset with the parameter setting that has the best cross-validated score_regression score
 		gs = model_selection.GridSearchCV(
-			KNeighborsRegressor(algorithm='auto', n_jobs=-1), 
+			KNeighborsRegressor(algorithm='auto', n_jobs=-1),
 			param_grid=grid,
-			scoring=scoring, 
-			refit='score_regression', 
-			return_train_score=True, 
-			error_score=0, 
-			n_jobs=-1, 
+			scoring=scoring,
+			refit='score_regression',
+			return_train_score=True,
+			error_score=0,
+			n_jobs=-1,
 			verbose=3)
-		
+
 		gs.fit(self.X_train, self.Y_train)
 
 		if VERBOSE :
@@ -275,7 +287,7 @@ class Project:
 
 	def get_grid_search_mlp(self):
 		scoring = {
-			'NegMSE': 'neg_mean_squared_error', 
+			'NegMSE': 'neg_mean_squared_error',
 			'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
 		}
 		grid = {
@@ -292,15 +304,15 @@ class Project:
 		gs = model_selection.GridSearchCV(
 			MLPRegressor(),
 			param_grid=grid,
-			scoring=scoring, 
-			refit='score_regression', 
-			return_train_score=True, 
-			error_score=0, 
-			n_jobs=-1, 
+			scoring=scoring,
+			refit='score_regression',
+			return_train_score=True,
+			error_score=0,
+			n_jobs=-1,
 			verbose=3)
-	
+
 		gs.fit(self.X_train, self.Y_train)
-		
+
 		if VERBOSE :
 			print("--- Grid search MLP ---")
 			print("best params:", gs.best_params_)
@@ -310,26 +322,26 @@ class Project:
 
 	def get_grid_search_etr(self):
 		scoring = {
-			'NegMSE': 'neg_mean_squared_error', 
+			'NegMSE': 'neg_mean_squared_error',
 			'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
 		}
 		grid = {
 			'n_estimators' : [80, 100, 120, 150],
 			'max_features' : ['auto', 'sqrt', 'log2']
 		}
-		
+
 		gs = model_selection.GridSearchCV(
 			ExtraTreesRegressor(n_jobs=-1),
 			param_grid=grid,
-			scoring=scoring, 
-			refit='score_regression', 
-			return_train_score=True, 
-			error_score=0, 
-			n_jobs=-1, 
+			scoring=scoring,
+			refit='score_regression',
+			return_train_score=True,
+			error_score=0,
+			n_jobs=-1,
 			verbose=3)
-	
+
 		gs.fit(self.X_train, self.Y_train)
-		
+
 		if VERBOSE:
 			print("--- Grid search MLP ---")
 			print("best params:", gs.best_params_)
@@ -385,11 +397,11 @@ class Project:
 
 
 scoring = {
-	'NegMSE': 'neg_mean_squared_error', 
+	'NegMSE': 'neg_mean_squared_error',
 	'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
 }
 
-# p = Project()
+p = Project()
 
 #gsMLP = getGridSearchMLP(proj)
 #MLPprediction = gsMLP.predict(proj.X_testScaled)
