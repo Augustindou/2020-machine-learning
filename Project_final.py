@@ -30,16 +30,6 @@ n_features_pca_kpca = 30
 """
 Comments on the project :
 	- As of python 3.5 (I think), you might see datatypes given explicitely (x : int = 3). This is only used for code clarity as python will not care about the explicit type given (x : int = 3.2 is perfectly valid and type(x) will return 'float').
-
-? Questions to ask :
-	?
-
-! Important notes :
-	! Bri et Val font un standardize sur tout, preprocessing sur tout (pas oublier X2) et puis split et puis fit
-
-Documentation to read :
-	DOC
-
 """
 
 """
@@ -243,7 +233,7 @@ class Project:
 		cor = np.abs(np.corrcoef(self.X_train, self.Y_train['shares '], rowvar=False))
 		upper_cor = np.triu(cor, k=1)[:-1,:-1]						#k=1 to ignore the diagonal and [:-1,:-1] to ignore the correlation with the target
 		strongly_correlated = np.argwhere(upper_cor > th)
-		mutual_info = mutual_info_regression(self.X_train, np.ravel(self.Y_train['shares ']))	#quite slow
+		mutual_info = mutual_info_regression(self.X_train, np.ravel(self.Y_train['shares ']))
 		set_to_remove = set()
 		for pair in strongly_correlated:
 			if VERBOSE : print("these features are highly corelated:", self.X_train.columns.values[pair], "they have a correlation of", upper_cor[pair[0],pair[1]] )
@@ -262,7 +252,7 @@ class Project:
 		"""
 		Fit a linear regressor using the training data and make a prediction of the test data
 		"""
-		linear_regressor = LinearRegression(fit_intercept=True, standardize=False, n_jobs=-1)
+		linear_regressor = LinearRegression(fit_intercept=True, normalize=False, n_jobs=-1)
 		linear_regressor.fit(self.X_train, self.Y_train['shares '])
 		prediction = linear_regressor.predict(self.X_test)
 		return prediction, linear_regressor.coef_
@@ -449,18 +439,3 @@ scoring = {
 # p = Project(); gs = p.get_grid_search_mlp(); p.plot_grid_search_perf(scoring, gs, 'hidden_layer_sizes')
 # p = Project(); gs = p.get_grid_search_mlp(); p.plot_grid_search_perf(scoring, gs, 'learning_rate_init')
 # p = Project(); gs = p.get_grid_search_etr(); p.plot_grid_search_perf(scoring, gs, 'n_estimators')
-
-
-
-"""
-Documentation to read for next time :
-	DOC : https://scikit-learn.org/stable/modules/grid_search.html#grid-search
-	DOC : https://scikit-learn.org/stable/modules/neighbors.html#neighbors -> le bas est potentiellement très important pour la features selection!
-	DOC : https://scikit-learn.org/stable/modules/neural_networks_supervised.html -> voir les tips en bas, dit ce qu'il faut mettre dans grid_search + dit qu'on triche en fittant le scaller sur le trainSet et testSet.
-
-? Questions :
-	? shuffle ou pas??
-	? If the data ordering is not arbitrary (e.g. samples with the same class label are contiguous), shuffling it first may be essential to get a meaningful cross-validation result.
-	? However, the opposite may be true if the samples are not independently and identically distributed. For example, if samples correspond to news articles, and are ordered by their time of publication,
-	? then shuffling the data will likely lead to a model that is overfit and an inflated validation score: it will be tested on samples that are artificially similar (close in time) to training samples.
-"""
