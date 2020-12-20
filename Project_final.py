@@ -262,7 +262,7 @@ class Project:
 		Linear model trained with L1 prior as regularizer (aka the Lasso).
 		DOC : https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html#sklearn.linear_model.Lasso:
 		"""
-		lasso = Lasso(alpha=1.0, fit_intercept=True, standardize=False, max_iter=max_iter, tol=tol, warm_start=warm_start, selection='random')
+		lasso = Lasso(alpha=1.0, fit_intercept=True, normalize=False, max_iter=max_iter, tol=tol, warm_start=warm_start, selection='random')
 		# we can also use selection='cyclic' to loop over features sequentially
 		lasso.fit(self.X_train, self.Y_train['shares '])
 		prediction = lasso.predict(self.X_test)
