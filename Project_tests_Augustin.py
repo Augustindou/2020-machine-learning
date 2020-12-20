@@ -243,11 +243,9 @@ class Project:
 		DOC : https://scikit-learn.org/stable/modules/model_evaluation.html#scoring-parameter
 		"""
 		scoring = {
-			'NegMSE': 'neg_mean_squared_error', 
 			'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
 		}
 		grid = {
-			# 'n_neighbors':[8,10,12],
 			'n_neighbors': [4, 6, 8, 10, 12, 13, 14, 15, 16, 17, 18, 20, 22, 25, 30, 40],
 			'weights': ['uniform']# , 'distance']
 		}
@@ -275,17 +273,17 @@ class Project:
 
 	def get_grid_search_mlp(self):
 		scoring = {
-			'NegMSE': 'neg_mean_squared_error', 
 			'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
 		}
 		grid = {
-			'hidden_layer_sizes': [(15,), (50,), (100,), (50,50,)],
-			'activation': ['relu'], # {‘identity’, ‘logistic’, ‘tanh’, ‘relu’}
+			'hidden_layer_sizes': [(25, 50, 25,)],
+			# 'hidden_layer_sizes': [(15,), (50,), (100,), (50, 50,), (25, 50, 25,), (25, 25, 25, 25,), (50, 50, 50), (25, 50, 50, 25)],
+			'activation': ['relu'], # {'identity', 'logistic', 'tanh', 'relu'}
 			'solver': ['adam'],
 			'alpha': [1e-5], # 10.0 ** -np.arange(1, 7),
 			# DOC : alpha advised by https://scikit-learn.org/stable/modules/neural_networks_supervised.html
-			'learning_rate': ['adaptive'], # {‘constant’, ‘invscaling’, ‘adaptive’}
-			'learning_rate_init': [0.001] # 0.0001 default
+			'learning_rate': ['constant'], # {'constant', 'invscaling', 'adaptive'}
+			'learning_rate_init': 10.0 ** -np.arange(0, 5), # 0.0001 default, 0.001 for other graphs
 			# TODO
 		}
 
@@ -299,7 +297,7 @@ class Project:
 			n_jobs=-1, 
 			verbose=3)
 	
-		gs.fit(self.X_train, self.Y_train)
+		gs.fit(self.X_train, self.Y_train.values.ravel())
 		
 		if VERBOSE :
 			print("--- Grid search MLP ---")
@@ -310,12 +308,11 @@ class Project:
 
 	def get_grid_search_etr(self):
 		scoring = {
-			'NegMSE': 'neg_mean_squared_error', 
 			'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
 		}
 		grid = {
-			'n_estimators' : [80, 100, 120, 150],
-			'max_features' : ['auto', 'sqrt', 'log2']
+			'n_estimators' : [10, 50, 80, 100, 120, 150, 200, 300],
+			'max_features' : ['auto'] #, 'sqrt', 'log2']
 		}
 		
 		gs = model_selection.GridSearchCV(
@@ -328,7 +325,7 @@ class Project:
 			n_jobs=-1, 
 			verbose=3)
 	
-		gs.fit(self.X_train, self.Y_train)
+		gs.fit(self.X_train, self.Y_train.values.ravel())
 		
 		if VERBOSE:
 			print("--- Grid search MLP ---")
@@ -352,11 +349,20 @@ class Project:
 		# ax.set_ylim(0.73, 1)
 
 		# Get the regular numpy array from the MaskedArray
-		X_axis = np.array(gs.param_grid[param_as_abscice], dtype=float)
+		if param_as_abscice == 'learning_rate_init':
+			X_axis = np.arange(len(gs.param_grid[param_as_abscice]))
+			xticks = np.array(gs.param_grid[param_as_abscice])
+			plt.xticks(X_axis, xticks)
+		elif type(gs.param_grid[param_as_abscice][0]) == int or type(gs.param_grid[param_as_abscice][0]) == float :
+			X_axis = np.array(gs.param_grid[param_as_abscice])
+		else:
+			X_axis = np.arange(len(gs.param_grid[param_as_abscice]))
+			xticks = np.array(gs.param_grid[param_as_abscice])
+			plt.xticks(X_axis, xticks)
 
 		scorer = 'score_regression'
 		color = 'b'
-		for sample, style in (('train', '--'), ('test', '-')):
+		for sample, style in (('test', '-'),): #('train', '--'),
 			sample_score_mean = gs.cv_results_['mean_%s_%s' % (sample, scorer)]
 			sample_score_std = gs.cv_results_['std_%s_%s' % (sample, scorer)]
 			ax.fill_between(X_axis, sample_score_mean - sample_score_std,
@@ -364,7 +370,7 @@ class Project:
 							alpha=0.1 if sample == 'test' else 0, color=color)
 			ax.plot(X_axis, sample_score_mean, style, color=color,
 					alpha=1 if sample == 'test' else 0.7,
-					label="%s (%s)" % (scorer, sample))
+					label="%s (%s)" % (scorer, "5-Fold test" if sample == 'test' else sample))
 
 			best_index = np.nonzero(gs.cv_results_['rank_test_%s' % scorer] == 1)[0][0]
 			best_score = gs.cv_results_['mean_test_%s' % scorer][best_index]
@@ -373,28 +379,29 @@ class Project:
 			ax.plot([X_axis[best_index], ], [best_score],
 					linestyle='-.', color=color, marker='x', markeredgewidth=3, ms=8)
 
+
 			# Annotate the best score for that scorer
-			ax.annotate("%0.2f" % best_score,
+			ax.annotate("%0.3f" % best_score,
 						(X_axis[best_index], best_score + 0.005))
+
+		# plot a line for the test score of the best model
+		test_score = gs.score(self.X_test, self.Y_test)
+		ax.plot([X_axis[0], X_axis[-1]], [test_score, test_score], 
+		    linestyle='dotted', color='g', markeredgewidth=3, ms=8, 
+				label="best score on test data : %0.3f" % test_score)
 
 		plt.legend(loc="best")
 		plt.grid(False)
 		plt.show()
 
-
-
-
 scoring = {
-	'NegMSE': 'neg_mean_squared_error', 
 	'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
 }
 
-# p = Project()
-
-#gsMLP = getGridSearchMLP(proj)
-#MLPprediction = gsMLP.predict(proj.X_testScaled)
-#print(f"score by LinearRegression: {proj.score_regression(proj.Y_test, MLPprediction)}")
-
+# p = Project(); gs = p.get_grid_search_knn(); p.plot_grid_search_perf(scoring, gs, 'n_neighbors')
+# p = Project(); gs = p.get_grid_search_mlp(); p.plot_grid_search_perf(scoring, gs, 'hidden_layer_sizes')
+# p = Project(); gs = p.get_grid_search_mlp(); p.plot_grid_search_perf(scoring, gs, 'learning_rate_init')
+# p = Project(); gs = p.get_grid_search_etr(); p.plot_grid_search_perf(scoring, gs, 'n_estimators')
 
 
 """

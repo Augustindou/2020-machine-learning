@@ -1,4 +1,7 @@
 import Project_tests_Augustin as P; p = P.Project(); gs = p.get_grid_search_knn(); p.plot_grid_search_perf(P.scoring, gs, 'n_neighbors')
+import Project_tests_Augustin as P; p = P.Project(); gs = p.get_grid_search_mlp(); p.plot_grid_search_perf(P.scoring, gs, 'hidden_layer_sizes')
+import Project_tests_Augustin as P; p = P.Project(); gs = p.get_grid_search_mlp(); p.plot_grid_search_perf(P.scoring, gs, 'learning_rate_init')
+import Project_tests_Augustin as P; p = P.Project(); gs = p.get_grid_search_etr(); p.plot_grid_search_perf(P.scoring, gs, 'n_estimators')
 
 
 threshold : 0.8
