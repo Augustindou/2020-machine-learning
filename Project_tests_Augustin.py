@@ -23,6 +23,9 @@ from sklearn.decomposition import KernelPCA, PCA
 # verbose
 VERBOSE = True
 
+# constants
+n_features_pca_kpca = 30
+
 """
 Comments on the project :
 	- As of python 3.5 (I think), you might see datatypes given explicitely (x : int = 3). This is only used for code clarity as python will not care about the explicit type given (x : int = 3.2 is perfectly valid and type(x) will return 'float').
@@ -80,14 +83,12 @@ class Project:
 
 		if VERBOSE : print("\n--- Feature Selection ---")
 		self.remove_correlation_features()
-		#self.pca() # pca ? kernel_pca ?
+		# self.pca()
 		# self.kernel_pca()
 
 		if VERBOSE : print("\n--- Splitting data ---")
 		self.split_data()
 
-		# ensuite on peut split nos data
-		# self.X_trainScaled, self.X_testScaled = self.normalize_data(self.X_train, self.X_test)
 
 	def read_data(self,
 		X1_file : str = "X1.csv",
@@ -108,11 +109,6 @@ class Project:
 		"""
 		self.X_train, self.X_test, self.Y_train, self.Y_test = model_selection.train_test_split(self.X1, self.Y1, test_size=test_size)
 
-		if hasattr(self, 'pca_X1'):
-			self.pca_X_train, self.pca_X_test, self.pca_Y_train, self.pca_Y_test = model_selection.train_test_split(self.pca_X1, self.Y1, test_size=test_size)
-		if hasattr(self, 'kpca_X1'):
-			self.kpca_X_train, self.kpca_X_test, self.kpca_Y_train, self.kpca_Y_test = model_selection.train_test_split(self.kpca_X1, self.Y1, test_size=test_size)
-
 		if VERBOSE : print(f"Data has been split between train and test, with {test_size*100}% of the data used as testing data")
 
 	def normalize_data(self):
@@ -125,8 +121,6 @@ class Project:
 		if VERBOSE : print("X1 has been normalized")
 		
 	def remove_outliers(self):
-		if VERBOSE : print("Transformed one-hot encodings in sin-cos weekdays & dropped one-hot encodings")
-		
 		isolation_forest = IsolationForest(n_jobs=-1)
 		index = isolation_forest.fit_predict(np.append(self.X1, self.Y1, axis=1))
 		to_remove = np.arange(0,len(index),1)[index==-1]
@@ -161,25 +155,27 @@ class Project:
 		# drop old columns
 		col = ['weekday_is_monday', 'weekday_is_tuesday', 'weekday_is_wednesday', 'weekday_is_thursday', 'weekday_is_friday', 'weekday_is_saturday', 'weekday_is_sunday']
 		self.X1 = self.X1.drop(columns = col)
+		
+		if VERBOSE : print("Transformed one-hot encodings in sin-cos weekdays & dropped one-hot encodings")
 	
-	def pca(self, n_features : int = 15):
+	def pca(self, n_features : int = n_features_pca_kpca):
 		"""
 		PCA for feature selection
 		DOC : https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html
 		"""
 		n_features_start = len(self.X1.columns)
 		pca = PCA(n_components=n_features)
-		self.pca_X1 = pd.DataFrame(pca.fit_transform(self.X1))
+		self.X1 = pd.DataFrame(pca.fit_transform(self.X1))
 		if VERBOSE : print(f"PCA used on X1 : from {n_features_start} to {n_features} features")
 
-	def kernel_pca(self, n_features : int = 15, kernel='linear'):
+	def kernel_pca(self, n_features : int = n_features_pca_kpca, kernel='linear'):
 		"""
 		KernelPCA for feature selection
 		DOC : https://scikit-learn.org/stable/modules/decomposition.html#kernel-pca
 		"""
 		n_features_start = len(self.X1.columns)
 		kpca = KernelPCA(n_components=n_features, kernel=kernel, gamma=1/n_features, n_jobs=-1)
-		self.kpca_X1 = pd.DataFrame(kpca.fit_transform(self.X1))
+		self.X1 = pd.DataFrame(kpca.fit_transform(self.X1))
 		if VERBOSE : print(f"KernelPCA used on X1 : from {n_features_start} to {n_features} features")
 	
 	def describe_features(self):
@@ -212,7 +208,7 @@ class Project:
 		mutual_info = mutual_info_regression(self.X1, np.ravel(self.Y1))	#quite slow
 		set_to_remove = set()
 		for pair in strongly_correlated:
-			if VERBOSE : print("those features are highly corelated:", self.X1.columns.values[pair], "they have a correlation of", upper_cor[pair[0],pair[1]] )
+			if VERBOSE : print("these features are highly corelated:", self.X1.columns.values[pair], "they have a correlation of", upper_cor[pair[0],pair[1]] )
 			if (pair[0] not in set_to_remove) and (pair[1] not in set_to_remove):
 				index_to_remove = pair[np.argsort(mutual_info[pair])[0]]
 				name_to_remove = self.X1.columns[index_to_remove]
@@ -222,38 +218,24 @@ class Project:
 		self.X1 = self.X1.drop(list(set_to_remove), axis=1)
 		if VERBOSE : print(f"removed {len(set_to_remove)} correlated features")
 
-	def predict_with_linear_regression(self, preprocessing = 'default'):
+	def predict_with_linear_regression(self):
 		"""
 		Fit a linear regressor using the training data and make a prediction of the test data
 		"""
 		linear_regressor = LinearRegression(fit_intercept=True, normalize=False, n_jobs=-1)
-		if preprocessing == 'pca':
-			linear_regressor.fit(self.pca_X_train, self.pca_Y_train)
-			prediction = linear_regressor.predict(self.pca_X_test)
-		elif preprocessing == 'kpca':
-			linear_regressor.fit(self.kpca_X_train, self.kpca_Y_train)
-			prediction = linear_regressor.predict(self.kpca_X_test)
-		else:
-			linear_regressor.fit(self.X_train, self.Y_train)
-			prediction = linear_regressor.predict(self.X_test)
+		linear_regressor.fit(self.X_train, self.Y_train)
+		prediction = linear_regressor.predict(self.X_test)
 		return prediction, linear_regressor.coef_
 
-	def predict_with_lasso(self, max_iter : int = 1100, tol : float = 1e-4, warm_start : bool = False, preprocessing = 'default'):
+	def predict_with_lasso(self, max_iter : int = 1100, tol : float = 1e-4, warm_start : bool = False):
 		"""
 		Linear model trained with L1 prior as regularizer (aka the Lasso). 
 		DOC : https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html#sklearn.linear_model.Lasso:
 		"""
 		lasso = Lasso(alpha=1.0, fit_intercept=True, normalize=False, max_iter=max_iter, tol=tol, warm_start=warm_start, selection='random')
 		# we can also use selection='cyclic' to loop over features sequentially
-		if preprocessing == 'pca':
-			lasso.fit(self.pca_X_train, self.pca_Y_train)
-			prediction = lasso.predict(self.pca_X_test)
-		elif preprocessing == 'kpca':
-			lasso.fit(self.kpca_X_train, self.kpca_Y_train)
-			prediction = lasso.predict(self.kpca_X_test)
-		else:
-			lasso.fit(self.X_train, self.Y_train)
-			prediction = lasso.predict(self.X_test)
+		lasso.fit(self.X_train, self.Y_train)
+		prediction = lasso.predict(self.X_test)
 		return prediction, lasso.coef_	
 
 	def get_grid_search_knn(self):
@@ -297,13 +279,13 @@ class Project:
 			'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
 		}
 		grid = {
-			'hidden_layer_sizes': [(100,), (15,), (50,50,), (50,)],
-			'activation': ['identity', 'logistic', 'tanh', 'relu'],
+			'hidden_layer_sizes': [(15,), (50,), (100,), (50,50,)],
+			'activation': ['relu'], # {‘identity’, ‘logistic’, ‘tanh’, ‘relu’}
 			'solver': ['adam'],
-			'alpha': 10.0 ** -np.arange(1, 7),
+			'alpha': [1e-5], # 10.0 ** -np.arange(1, 7),
 			# DOC : alpha advised by https://scikit-learn.org/stable/modules/neural_networks_supervised.html
-			'learning_rate': ['constant', 'invscaling', 'adaptive'],	#{‘constant’, ‘invscaling’, ‘adaptive’}
-			'learning_rate_init': [1, 0.1, 0.0001]
+			'learning_rate': ['adaptive'], # {‘constant’, ‘invscaling’, ‘adaptive’}
+			'learning_rate_init': [0.001] # 0.0001 default
 			# TODO
 		}
 
@@ -387,7 +369,7 @@ class Project:
 			best_index = np.nonzero(gs.cv_results_['rank_test_%s' % scorer] == 1)[0][0]
 			best_score = gs.cv_results_['mean_test_%s' % scorer][best_index]
 
-			# Plot a dotted vertical line at the best score for that scorer marked by x
+			# Plot an X on the best score
 			ax.plot([X_axis[best_index], ], [best_score],
 					linestyle='-.', color=color, marker='x', markeredgewidth=3, ms=8)
 
@@ -408,37 +390,6 @@ scoring = {
 }
 
 # p = Project()
-
-# print("\n--- Normal ---")
-# # linear regression scaled
-# prediction,_ = p.predict_with_linear_regression()
-# print("score by LinearRegression:", score_regression(p.Y_test, prediction)) # 0.48243917542285	
-
-# # lasso scaled
-# prediction,_ = p.predict_with_lasso()
-# print("score by Lasso testing:", score_regression(p.Y_test, prediction))	# 0.4834171812808842
-
-# print("\n--- PCA ---")
-# # linear regression scaled
-# prediction,_ = p.predict_with_linear_regression(preprocessing = "pca")
-# print("score by LinearRegression:", score_regression(p.pca_Y_test, prediction)) 
-
-# # lasso scaled
-# prediction,_ = p.predict_with_lasso(preprocessing = "pca")
-# print("score by Lasso testing:", score_regression(p.pca_Y_test, prediction))	
-
-# print("\n--- Kernel PCA ---")
-# # linear regression scaled
-# prediction,_ = p.predict_with_linear_regression(preprocessing = "kpca")
-# print("score by LinearRegression:", score_regression(p.kpca_Y_test, prediction)) 
-
-# # lasso scaled
-# prediction,_ = p.predict_with_lasso(preprocessing = "kpca")
-# print("score by Lasso testing:", score_regression(p.kpca_Y_test, prediction))	
-
-#/!\ preneur en temps mais beau et instructif sur les features donnant potentiellement les mêmes info.
-#proj.plotCorrelationMatrix(filename="correlation_matNotNormalized.svg", normalize=False)
-#proj.plotCorrelationMatrix()
 
 #gsMLP = getGridSearchMLP(proj)
 #MLPprediction = gsMLP.predict(proj.X_testScaled)
