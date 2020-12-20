@@ -436,6 +436,10 @@ class Project:
 		plt.legend(loc="best")
 		plt.grid(False)
 		plt.show()
+	
+	def save_data_frame_to_csv(self, numpy_array, path):
+		assert len(numpy_array)==19822, "The lenght of the file to post on Moodle should be 19822"
+		pd.DataFrame(numpy_array).to_csv(path, header=None, index=None)
 
 scoring = {
 	'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
@@ -445,6 +449,7 @@ scoring = {
 # p = Project(); gs = p.get_grid_search_mlp(); p.plot_grid_search_perf(scoring, gs, 'hidden_layer_sizes')
 # p = Project(); gs = p.get_grid_search_mlp(); p.plot_grid_search_perf(scoring, gs, 'learning_rate_init')
 # p = Project(); gs = p.get_grid_search_etr(); p.plot_grid_search_perf(scoring, gs, 'n_estimators')
+
 
 
 """
