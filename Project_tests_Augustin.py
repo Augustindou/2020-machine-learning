@@ -4,6 +4,7 @@ from numpy.lib.function_base import select
 import pandas as pd
 import numpy as np
 from pandas.core.base import SelectionMixin
+from scipy.sparse import linalg
 import sklearn
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -20,8 +21,8 @@ from sklearn.decomposition import KernelPCA, PCA
 
 #sklearn.preprocessing.normalize ??? je sais pas si il faut
 
-# verbose
 VERBOSE = True
+PLOT = False
 
 # constants
 n_features_pca_kpca = 30
@@ -34,7 +35,7 @@ Comments on the project :
 	?
 
 ! Important notes :
-	! Bri et Val font un normalize sur tout, preprocessing sur tout (pas oublier X2) et puis split et puis fit
+	! Bri et Val font un standardize sur tout, preprocessing sur tout (pas oublier X2) et puis split et puis fit
 
 Documentation to read :
 	DOC
@@ -48,24 +49,31 @@ def score_f1(y_true, y_pred, th):
 	return metrics.f1_score(y_true > th, y_pred > th)
 
 def score_regression(y_true , y_pred):
-	scores = [ score_f1(y_true, y_pred, th=th) for th in [500, 1400, 5000, 10000] ]
+	scores = [ score_f1(y_true['shares '], y_pred, th=th) for th in [500, 1400, 5000, 10000] ]
 	return np.mean(scores)
 
 """
 Functions not depending on the class instance
 """
-def normalize_data_as_panda(data : pd.DataFrame, scaler = StandardScaler()) -> pd.DataFrame:
+def standardize_data_as_panda(data : pd.DataFrame, scaler = StandardScaler()) -> pd.DataFrame:
 	"""
-	Function to normalise a panda DataFrame.
+	Function to standardize a panda DataFrame.
 	@param:
-		data: a panda [DataFrame] to normalize
+		data: a panda [DataFrame] to standardize
 		scaler: the scaler to use
-	@returns: a normalized panda [DataFrame]
+	@returns: a standardized panda [DataFrame]
 	"""
-	normalized_data = scaler.fit_transform(data)
-	pd_normalized_data = pd.DataFrame(data=normalized_data, index=data.index, columns=data.columns)
-	assert np.all(normalized_data == pd_normalized_data.values)
-	return pd_normalized_data
+	standardized_data = scaler.fit_transform(data)
+	pd_standardized_data = pd.DataFrame(data=standardized_data, index=data.index, columns=data.columns)
+	assert np.all(standardized_data == pd_standardized_data.values)
+	return pd_standardized_data
+
+def class_from_shares(n_shares):
+	if   n_shares < 500  : return 'flop'
+	elif n_shares < 1400 : return 'mild success'
+	elif n_shares < 5000 : return 'success'
+	elif n_shares < 10000: return 'great success'
+	else : return 'viral hit'
 
 """
 Class used to be able to easily access different values and pass information between functions
@@ -78,15 +86,16 @@ class Project:
 		self.read_data()
 
 		if VERBOSE : print("\n--- Preprocessing ---")
-		# put days_one_hot_to_sin_cos() before normalize if we want to have a normal one-hot encoding
+		# put days_one_hot_to_sin_cos() before standardize if we want to have a normal one-hot encoding
 		self.X1 = self.days_one_hot_to_sin_cos(self.X1)
 		self.X2 = self.days_one_hot_to_sin_cos(self.X2)
 		self.split_data()
-		self.normalize_data()
-		self.remove_outliers_on_train_set()
+		self.standardize_data()
+		# self.remove_outliers_on_train_set()
+		self.classify_shares()
 
 		if VERBOSE : print("\n--- Feature Selection ---")
-		self.remove_correlation_features()
+		# self.remove_correlation_features()
 		# self.pca()
 		# self.kernel_pca()
 
@@ -114,16 +123,16 @@ class Project:
 
 		if VERBOSE : print(f"Data has been split between train and test, with {test_size*100}% of the data used as testing data")
 
-	def normalize_data(self):
+	def standardize_data(self):
 		"""
-		Normalize the data
+		Standardize the data
 		DOC : https://scikit-learn.org/stable/modules/neural_networks_supervised.html#tips-on-practical-use
 		"""
 		scaler = StandardScaler()
 		self.X_train = pd.DataFrame(data = scaler.fit_transform(self.X_train), columns=self.X1.columns)
 		self.X_test = pd.DataFrame(data = scaler.transform(self.X_test), columns=self.X1.columns)
 		self.X2 = pd.DataFrame(data = scaler.transform(self.X2), index=self.X2.index, columns=self.X2.columns)
-		if VERBOSE : print("X_train, X_test and X2 has been normalized")
+		if VERBOSE : print("X_train, X_test and X2 has been standardized")
 
 	def remove_outliers_on_train_set(self):
 		isolation_forest = IsolationForest(n_jobs=-1)
@@ -165,6 +174,24 @@ class Project:
 		if VERBOSE : print("Transformed one-hot encodings in sin-cos weekdays & dropped one-hot encodings")
 		return data
 
+	def classify_shares(self):
+		"""
+		classify the shares in categories (flop, mild success, ...)
+		"""
+		self.Y_train.loc[:, 'class'] = self.Y_train['shares '].apply(class_from_shares)
+		self.Y_test.loc[:, 'class']  = self.Y_test['shares '].apply(class_from_shares)
+
+		class_proportion = self.Y_train.groupby('class').apply(len)/len(self.Y_train)
+		self.class_weights = self.Y_train['class'].map(1/class_proportion) / np.linalg.norm(1/class_proportion)
+
+		self.Y_train  = self.Y_train.drop(['class'], axis=1)
+
+		if PLOT:
+			print("plotting bar graph for classes")
+			class_order = ['flop', 'mild success', 'success', 'great success', 'viral hit']
+			plt.bar(class_order, list(class_proportion[class_order].values))
+			plt.show()
+
 	def pca(self, n_features : int = n_features_pca_kpca):
 		"""
 		PCA for feature selection
@@ -201,10 +228,10 @@ class Project:
 		"""
 		print(self.X1.columns)
 
-	def plot_correlation_matrix(self, filename : str = "correlation_mat.svg", normalize : bool = True):
-		if normalize:
-			X1_normalized = normalize_data_as_panda(self.X1)
-			correlation_mat = X1_normalized.join(self.Y1).corr()
+	def plot_correlation_matrix(self, filename : str = "correlation_mat.svg", standardize : bool = True):
+		if standardize:
+			X1_standardized = standardize_data_as_panda(self.X1)
+			correlation_mat = X1_standardized.join(self.Y1).corr()
 		else :
 			correlation_mat = self.X1.join(self.Y1).corr()
 		plt.subplots(figsize=(25,20))
@@ -213,10 +240,10 @@ class Project:
 		if VERBOSE : print(f"Saved correlation matrix to '{filename}'")
 
 	def remove_correlation_features(self, th=0.85):
-		cor = np.abs(np.corrcoef(self.X_train, self.Y_train.values, rowvar=False))
+		cor = np.abs(np.corrcoef(self.X_train, self.Y_train['shares '], rowvar=False))
 		upper_cor = np.triu(cor, k=1)[:-1,:-1]						#k=1 to ignore the diagonal and [:-1,:-1] to ignore the correlation with the target
 		strongly_correlated = np.argwhere(upper_cor > th)
-		mutual_info = mutual_info_regression(self.X_train, np.ravel(self.Y_train))	#quite slow
+		mutual_info = mutual_info_regression(self.X_train, np.ravel(self.Y_train['shares ']))	#quite slow
 		set_to_remove = set()
 		for pair in strongly_correlated:
 			if VERBOSE : print("these features are highly corelated:", self.X_train.columns.values[pair], "they have a correlation of", upper_cor[pair[0],pair[1]] )
@@ -227,6 +254,7 @@ class Project:
 				if VERBOSE : print(name_to_remove, "has the lowest mutual info with the target. I will remove it")
 				set_to_remove.add(name_to_remove)
 		self.X_train = self.X_train.drop(list(set_to_remove), axis=1)
+		self.X_test  = self.X_test .drop(list(set_to_remove), axis=1)
 		self.X2 = self.X2.drop(list(set_to_remove), axis=1)
 		if VERBOSE : print(f"removed {len(set_to_remove)} correlated features")
 
@@ -234,8 +262,8 @@ class Project:
 		"""
 		Fit a linear regressor using the training data and make a prediction of the test data
 		"""
-		linear_regressor = LinearRegression(fit_intercept=True, normalize=False, n_jobs=-1)
-		linear_regressor.fit(self.X_train, self.Y_train)
+		linear_regressor = LinearRegression(fit_intercept=True, standardize=False, n_jobs=-1)
+		linear_regressor.fit(self.X_train, self.Y_train['shares '])
 		prediction = linear_regressor.predict(self.X_test)
 		return prediction, linear_regressor.coef_
 
@@ -244,9 +272,9 @@ class Project:
 		Linear model trained with L1 prior as regularizer (aka the Lasso).
 		DOC : https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html#sklearn.linear_model.Lasso:
 		"""
-		lasso = Lasso(alpha=1.0, fit_intercept=True, normalize=False, max_iter=max_iter, tol=tol, warm_start=warm_start, selection='random')
+		lasso = Lasso(alpha=1.0, fit_intercept=True, standardize=False, max_iter=max_iter, tol=tol, warm_start=warm_start, selection='random')
 		# we can also use selection='cyclic' to loop over features sequentially
-		lasso.fit(self.X_train, self.Y_train)
+		lasso.fit(self.X_train, self.Y_train['shares '])
 		prediction = lasso.predict(self.X_test)
 		return prediction, lasso.coef_
 
@@ -273,7 +301,7 @@ class Project:
 			n_jobs=-1,
 			verbose=3)
 
-		gs.fit(self.X_train, self.Y_train)
+		gs.fit(self.X_train, self.Y_train['shares '])
 
 		if VERBOSE :
 			print("--- Grid search KNN ---")
@@ -309,12 +337,13 @@ class Project:
 			n_jobs=-1,
 			verbose=3)
 	
-		gs.fit(self.X_train, self.Y_train.values.ravel())
+		gs.fit(self.X_train, self.Y_train['shares '].values.ravel())
 		
 		if VERBOSE :
 			print("--- Grid search MLP ---")
 			print("best params:", gs.best_params_)
 			print("training score (on trained data):", gs.best_score_)
+			print(f"score on test data : {gs.score(self.X_test, self.Y_test)}")
 
 		return gs
 
@@ -324,7 +353,8 @@ class Project:
 		}
 		grid = {
 			'n_estimators' : [10, 50, 80, 100, 120, 150, 200, 300],
-			'max_features' : ['auto'] #, 'sqrt', 'log2']
+			# 'n_estimators' : [100, 120, 150,],
+			'max_features' : ['auto'] #, {'auto', 'sqrt', 'log2'}
 		}
 
 		gs = model_selection.GridSearchCV(
@@ -337,12 +367,13 @@ class Project:
 			n_jobs=-1,
 			verbose=3)
 	
-		gs.fit(self.X_train, self.Y_train.values.ravel())
+		gs.fit(self.X_train, self.Y_train, **{'sample_weight': self.class_weights})
 		
 		if VERBOSE:
 			print("--- Grid search MLP ---")
 			print("best params:", gs.best_params_)
 			print("training score:", gs.best_score_)
+			print(f"score on test data : {gs.score(self.X_test, self.Y_test)}")
 
 		return gs
 
