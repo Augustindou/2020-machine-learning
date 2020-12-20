@@ -439,7 +439,7 @@ class Project:
 	
 	def save_data_frame_to_csv(self, numpy_array, path):
 		assert len(numpy_array)==19822, "The lenght of the file to post on Moodle should be 19822"
-		pd.DataFrame(numpy_array).to_csv(path, header=False, index=False)
+		pd.DataFrame(numpy_array.T).to_csv(path, header=False, index=False)
 
 scoring = {
 	'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
