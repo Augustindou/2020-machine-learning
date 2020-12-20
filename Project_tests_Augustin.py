@@ -357,10 +357,10 @@ class Project:
 
 	#following code from https://scikit-learn.org/stable/auto_examples/model_selection/plot_multi_metric_evaluation.html#sphx-glr-auto-examples-model-selection-plot-multi-metric-evaluation-py
 	#param_as_abscice is the string representing a hyper-param -> exemple: 'n_estimators'
-	def plot_grid_search_perf(self, scoring, gs, param_as_abscice = 'n_neighbors'):
+	def plot_grid_search_perf(self, scoring, gs, param_as_abscice = 'n_neighbors', title = ''):
 		# ! only use with 1 changing variable in the grid, no time to make a more robust version :'(
 		plt.figure(figsize=(13, 13))
-		plt.title("GridSearchCV evaluating using multiple scorers simultaneously", fontsize=16)
+		plt.title(title, fontsize=16)
 
 		plt.xlabel(param_as_abscice)
 		plt.ylabel("Score")
@@ -407,7 +407,7 @@ scoring = {
 	'score_regression': metrics.make_scorer(score_regression, greater_is_better=True)
 }
 
-p = Project()
+# p = Project()
 
 # print("\n--- Normal ---")
 # # linear regression scaled
